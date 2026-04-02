@@ -1,0 +1,194 @@
+{
+  "id": "d0000001-0000-0000-0000-000000000001",
+  "realm": "finflow",
+  "displayName": "FinFlow Platform",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 3600,
+  "refreshTokenMaxReuse": 0,
+  "roles": {
+    "realm": [
+      {
+        "id": "b0000001-0000-0000-0000-000000000001",
+        "name": "ROLE_CUSTOMER",
+        "description": "",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "d0000001-0000-0000-0000-000000000001"
+      },
+      {
+        "id": "b0000001-0000-0000-0000-000000000002",
+        "name": "ROLE_BUSINESS_ADMIN",
+        "description": "",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "d0000001-0000-0000-0000-000000000001"
+      },
+      {
+        "id": "b0000001-0000-0000-0000-000000000003",
+        "name": "ROLE_FINANCE_ANALYST",
+        "description": "",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "d0000001-0000-0000-0000-000000000001"
+      },
+      {
+        "id": "b0000001-0000-0000-0000-000000000004",
+        "name": "ROLE_PARTNER",
+        "description": "",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "d0000001-0000-0000-0000-000000000001"
+      },
+      {
+        "id": "b0000001-0000-0000-0000-000000000005",
+        "name": "ROLE_INTERNAL_SERVICE",
+        "description": "",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "d0000001-0000-0000-0000-000000000001"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "id": "a0000001-0000-0000-0000-000000000001",
+      "clientId": "finflow-api-gateway",
+      "name": "finflow-api-gateway",
+      "description": "",
+      "rootUrl": "",
+      "adminUrl": "",
+      "baseUrl": "",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "api-gateway-secret",
+      "redirectUris": ["http://localhost:8080/*"],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {},
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    },
+    {
+      "id": "a0000001-0000-0000-0000-000000000002",
+      "clientId": "finflow-graphql-gateway",
+      "name": "finflow-graphql-gateway",
+      "description": "",
+      "rootUrl": "",
+      "adminUrl": "",
+      "baseUrl": "",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "graphql-gateway-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {},
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    },
+    {
+      "id": "a0000001-0000-0000-0000-000000000003",
+      "clientId": "finflow-internal",
+      "name": "finflow-internal",
+      "description": "Used by internal services",
+      "rootUrl": "",
+      "adminUrl": "",
+      "baseUrl": "",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "internal-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {},
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    }
+  ],
+  "users": [
+    {
+      "id": "c0000001-0000-0000-0000-000000000001",
+      "username": "admin@finflow.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "FinFlow",
+      "lastName": "Admin",
+      "email": "admin@finflow.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ROLE_BUSINESS_ADMIN", "ROLE_FINANCE_ANALYST"],
+      "clientRoles": {},
+      "groups": []
+    },
+    {
+      "id": "c0000001-0000-0000-0000-000000000002",
+      "username": "customer@finflow.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Customer",
+      "email": "customer@finflow.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "customer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ROLE_CUSTOMER"],
+      "clientRoles": {},
+      "groups": []
+    }
+  ]
+}

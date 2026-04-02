@@ -1,0 +1,104 @@
+[versions]
+spring-boot          = "3.3.2"
+spring-cloud         = "2023.0.3"
+grpc                 = "1.65.0"
+protobuf             = "3.25.5"
+protobuf-plugin      = "0.9.4"
+resilience4j         = "2.2.0"
+keycloak-admin       = "24.0.5"
+testcontainers       = "1.20.0"
+micrometer-tracing   = "1.3.2"
+mapstruct            = "1.5.5.Final"
+lombok               = "1.18.34"
+flyway               = "10.15.0"
+grpc-spring-boot     = "3.1.0"
+aws-sdk              = "2.26.7"
+aws-cdk              = "2.147.0"
+rest-assured         = "5.4.0"
+pdfbox               = "3.0.2"
+opencsv              = "5.9"
+openapi              = "2.6.0"
+
+[libraries]
+spring-boot-web                = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-webflux            = { module = "org.springframework.boot:spring-boot-starter-webflux" }
+spring-boot-security           = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-jpa                = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-redis               = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-amqp               = { module = "org.springframework.boot:spring-boot-starter-amqp" }
+spring-boot-kafka              = { module = "org.springframework.kafka:spring-kafka" }
+spring-boot-actuator           = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-validation         = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-graphql            = { module = "org.springframework.boot:spring-boot-starter-graphql" }
+spring-boot-websocket          = { module = "org.springframework.boot:spring-boot-starter-websocket" }
+spring-boot-test               = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-cloud-gateway           = { module = "org.springframework.cloud:spring-cloud-starter-gateway" }
+spring-cloud-circuitbreaker    = { module = "org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j" }
+spring-oauth2-resource-server  = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+spring-security-test           = { module = "org.springframework.security:spring-security-test" }
+grpc-stub                      = { module = "io.grpc:grpc-stub",                  version.ref = "grpc" }
+grpc-protobuf                  = { module = "io.grpc:grpc-protobuf",              version.ref = "grpc" }
+grpc-netty                     = { module = "io.grpc:grpc-netty-shaded",          version.ref = "grpc" }
+grpc-spring-boot-server        = { module = "net.devh:grpc-server-spring-boot-starter", version.ref = "grpc-spring-boot" }
+grpc-spring-boot-client        = { module = "net.devh:grpc-client-spring-boot-starter", version.ref = "grpc-spring-boot" }
+protobuf-java                  = { module = "com.google.protobuf:protobuf-java",  version.ref = "protobuf" }
+protobuf-java-util             = { module = "com.google.protobuf:protobuf-java-util", version.ref = "protobuf" }
+resilience4j-spring-boot3      = { module = "io.github.resilience4j:resilience4j-spring-boot3", version.ref = "resilience4j" }
+resilience4j-reactor           = { module = "io.github.resilience4j:resilience4j-reactor", version.ref = "resilience4j" }
+micrometer-tracing-otel        = { module = "io.micrometer:micrometer-tracing-bridge-otel", version.ref = "micrometer-tracing" }
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
+opentelemetry-otlp             = { module = "io.opentelemetry.exporter:opentelemetry-exporter-otlp" }
+keycloak-admin-client          = { module = "org.keycloak:keycloak-admin-client",  version.ref = "keycloak-admin" }
+postgresql                     = { module = "org.postgresql:postgresql" }
+flyway-core                    = { module = "org.flywaydb:flyway-core",            version.ref = "flyway" }
+flyway-postgres                = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+mapstruct                      = { module = "org.mapstruct:mapstruct",             version.ref = "mapstruct" }
+mapstruct-processor            = { module = "org.mapstruct:mapstruct-processor",   version.ref = "mapstruct" }
+lombok                         = { module = "org.projectlombok:lombok",            version.ref = "lombok" }
+aws-cdk-lib                    = { module = "software.amazon.awscdk:aws-cdk-lib",  version.ref = "aws-cdk" }
+aws-s3                         = { module = "software.amazon.awssdk:s3",           version.ref = "aws-sdk" }
+aws-ses                        = { module = "software.amazon.awssdk:ses",          version.ref = "aws-sdk" }
+aws-sns                        = { module = "software.amazon.awssdk:sns",          version.ref = "aws-sdk" }
+pdfbox                         = { module = "org.apache.pdfbox:pdfbox",            version.ref = "pdfbox" }
+opencsv                        = { module = "com.opencsv:opencsv",                 version.ref = "opencsv" }
+springdoc-openapi              = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "openapi" }
+testcontainers-core            = { module = "org.testcontainers:testcontainers" }
+testcontainers-junit           = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgres        = { module = "org.testcontainers:postgresql" }
+testcontainers-kafka           = { module = "org.testcontainers:kafka" }
+testcontainers-rabbit          = { module = "org.testcontainers:rabbitmq" }
+testcontainers-keycloak        = { module = "com.github.dasniko:testcontainers-keycloak", version = "3.3.1" }
+rest-assured                   = { module = "io.rest-assured:rest-assured",        version.ref = "rest-assured" }
+mockito-core                   = { module = "org.mockito:mockito-core" }
+mockito-junit                  = { module = "org.mockito:mockito-junit-jupiter" }
+
+[bundles]
+service-common = [
+    "spring-boot-web",
+    "spring-boot-actuator",
+    "spring-boot-validation",
+    "spring-boot-security",
+    "spring-oauth2-resource-server",
+    "micrometer-tracing-otel",
+    "micrometer-registry-prometheus",
+    "lombok"
+]
+persistence = [
+    "spring-boot-jpa",
+    "postgresql",
+    "flyway-core",
+    "flyway-postgres"
+]
+testing = [
+    "spring-boot-test",
+    "testcontainers-core",
+    "testcontainers-junit",
+    "testcontainers-postgres",
+    "mockito-core",
+    "mockito-junit"
+]
+
+[plugins]
+spring-boot        = { id = "org.springframework.boot",         version.ref = "spring-boot" }
+spring-dependency  = { id = "io.spring.dependency-management",  version = "1.1.6" }
+protobuf           = { id = "com.google.protobuf",              version.ref = "protobuf-plugin" }

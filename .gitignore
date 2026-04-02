@@ -1,0 +1,38 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+
+# Cursor
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment (never commit secrets)
+.env
+
+# Docker (local overrides)
+docker-compose.override.yml
+
+# Generated protobuf
+*/build/generated/source/proto/
+
+# Logs
+*.log
+logs/
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar

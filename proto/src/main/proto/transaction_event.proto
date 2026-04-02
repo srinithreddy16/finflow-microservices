@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package com.finflow.transaction;
+
+option java_package = "com.finflow.proto.transaction";
+option java_outer_classname = "TransactionEventProto";
+
+message TransactionEvent {
+  string event_id = 1;
+  string transaction_id = 2;
+  string account_id = 3;
+  double amount = 4;
+  string currency = 5;
+  string event_type = 6;
+  string occurred_on = 7;
+  string correlation_id = 8;
+}

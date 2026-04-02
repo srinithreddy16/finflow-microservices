@@ -1,0 +1,46 @@
+package com.finflow.common.exception;
+
+/**
+ * Stable error codes returned by FinFlow APIs and propagated through {@link FinFlowException}.
+ */
+public enum ErrorCode {
+
+    // Generic
+    INTERNAL_SERVER_ERROR,
+    VALIDATION_FAILED,
+    RESOURCE_NOT_FOUND,
+    UNAUTHORIZED,
+    FORBIDDEN,
+    RATE_LIMIT_EXCEEDED,
+
+    // Account
+    ACCOUNT_NOT_FOUND,
+    ACCOUNT_ALREADY_EXISTS,
+    ACCOUNT_SUSPENDED,
+    TENANT_NOT_FOUND,
+    KYC_CHECK_FAILED,
+
+    // Transaction
+    TRANSACTION_NOT_FOUND,
+    INSUFFICIENT_FUNDS,
+    INVALID_CURRENCY,
+    TRANSACTION_ALREADY_REVERSED,
+
+    // Payment
+    PAYMENT_NOT_FOUND,
+    INSUFFICIENT_BALANCE,
+    LEDGER_ENTRY_FAILED,
+
+    // Fraud
+    FRAUD_CHECK_FAILED,
+    TRANSACTION_FLAGGED_AS_FRAUD,
+
+    // Saga
+    SAGA_EXECUTION_FAILED,
+    SAGA_COMPENSATION_FAILED,
+
+    // Report
+    REPORT_NOT_FOUND,
+    REPORT_GENERATION_FAILED,
+    S3_UPLOAD_FAILED
+}
