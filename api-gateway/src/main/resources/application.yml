@@ -1,0 +1,88 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 30s
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9090/realms/finflow}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:9090/realms/finflow/protocol/openid-connect/certs}
+
+service:
+  account:
+    url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+  transaction:
+    url: ${TRANSACTION_SERVICE_URL:http://localhost:8083}
+  payment:
+    url: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+  analytics:
+    url: ${ANALYTICS_SERVICE_URL:http://localhost:8088}
+  report:
+    url: ${REPORT_SERVICE_URL:http://localhost:8089}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      account-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      transaction-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      payment-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    com.finflow.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"
