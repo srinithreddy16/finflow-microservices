@@ -1,0 +1,98 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: transaction-service
+
+  datasource:
+    url: ${TRANSACTION_DB_URL:jdbc:postgresql://localhost:5432/transaction_db}
+    username: ${TRANSACTION_DB_USERNAME:finflow}
+    password: ${TRANSACTION_DB_PASSWORD:finflow}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:finflow}
+    password: ${RABBITMQ_PASSWORD:finflow}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9090/realms/finflow}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:9090/realms/finflow/protocol/openid-connect/certs}
+
+grpc:
+  client:
+    fraud-detection-service:
+      address: static://${FRAUD_SERVICE_HOST:localhost}:${FRAUD_SERVICE_GRPC_PORT:9001}
+      negotiation-type: plaintext
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      fraud-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 15s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+  retry:
+    instances:
+      fraud-service:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - io.grpc.StatusRuntimeException
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    com.finflow.transaction: DEBUG
+    net.devh.boot.grpc: INFO
+    org.springframework.amqp: INFO
+    org.springframework.kafka: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"

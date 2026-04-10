@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: ${TRANSACTION_DB_URL}
+    username: ${TRANSACTION_DB_USERNAME}
+    password: ${TRANSACTION_DB_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+grpc:
+  client:
+    fraud-detection-service:
+      address: static://${FRAUD_SERVICE_HOST}:${FRAUD_SERVICE_GRPC_PORT}
+      negotiation-type: plaintext
+
+logging:
+  level:
+    com.finflow.transaction: INFO
+    net.devh.boot.grpc: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1

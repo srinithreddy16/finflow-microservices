@@ -748,7 +748,7 @@ finflow/
   Day 03  Account Service: CRUD, Keycloak client, Flyway, RabbitMQ+Kafka config
   Day 04  Transaction Service: CQRS write side, EventStore, aggregate, events
   Day 05  Transaction Service: CQRS read side, projections, Redis cache, gRPC client
-  Day 06  Fraud Detection: gRPC server, rule engine, Resilience4j, Kafka publisher
+  Day 06  Fraud Detection: gRPC server, rule engine, **Resilience4j**, Kafka publisher
   Day 07  Payment Service + RabbitMQ + Choreography Saga (happy + compensation)
   Day 08  Saga Orchestrator: state machine, steps, compensation engine
   Day 09  Analytics + Notification: Kafka consumers, Redis counters, templates
