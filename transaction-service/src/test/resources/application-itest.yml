@@ -1,0 +1,16 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+  cache:
+    type: simple
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+logging:
+  level:
+    com.finflow.transaction: INFO
+    org.springframework: WARN
+    org.hibernate: WARN

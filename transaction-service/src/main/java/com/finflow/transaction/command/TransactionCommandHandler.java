@@ -10,11 +10,14 @@ import com.finflow.transaction.exception.TransactionNotFoundException;
 import com.finflow.proto.fraud.FraudCheckProto.FraudCheckResponse;
 import com.finflow.transaction.grpc.FraudCheckGrpcClient;
 import com.finflow.transaction.kafka.TransactionEventPublisher;
+import com.finflow.transaction.query.TransactionQueryHandler;
 import com.finflow.transaction.saga.PaymentSagaInitiator;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,10 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class TransactionCommandHandler {
 
     private final EventStore eventStore;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final FraudCheckGrpcClient fraudCheckGrpcClient;
     private final TransactionEventPublisher transactionEventPublisher;
     private final PaymentSagaInitiator paymentSagaInitiator;
+    @Lazy private final TransactionQueryHandler transactionQueryHandler;
 
+    /*
+    Checks if this transaction ID already exists in the EventStore.
+    Imagine a customer clicks "Pay" twice by accident. Without this check,
+    you'd process the payment twice and charge them double. This is called idempotency
+     */
     @Transactional
     public TransactionCreatedEvent handle(CreateTransactionCommand command) {
         if (!eventStore.findByAggregateId(command.transactionId()).isEmpty()) {
@@ -36,6 +46,10 @@ public class TransactionCommandHandler {
                     "Transaction already exists: " + command.transactionId());
         }
 
+        /* Fraud check via gRPC. Calls the fraud-detection-service synchronously via
+            gRPC before doing anything else. Why: We need an instant answer — is this transaction safe? gRPC is used here
+            because it's fast (binary protocol), typed (protobuf), and synchronous (we wait for the answer before continuing). This is the ONLY gRPC call in the entire system.
+         */
         FraudCheckResponse fraudResponse =
                 fraudCheckGrpcClient.checkTransaction(
                         command.transactionId(),
@@ -61,13 +75,9 @@ public class TransactionCommandHandler {
                                 : "Fraud detected",
                         "FRAUD_DETECTED",
                         command.correlationId());
-                List<TransactionEvent> events =
-                        new ArrayList<>(aggregate.getUncommittedEvents());
-                for (TransactionEvent event : events) {
-                    eventStore.append(event);
-                }
-                aggregate.markEventsAsCommitted();
+                commitAndPublish(aggregate);
                 transactionEventPublisher.publishFailed(aggregate);
+                transactionQueryHandler.evictCacheForAccount(aggregate.getAccountId());
             } catch (IllegalStateException e) {
                 throw FinFlowException.badRequest(ErrorCode.VALIDATION_FAILED, e.getMessage());
             }
@@ -88,17 +98,14 @@ public class TransactionCommandHandler {
                             command.initiatedBy(),
                             command.correlationId());
 
-            List<TransactionEvent> newEvents = new ArrayList<>(aggregate.getUncommittedEvents());
             TransactionCreatedEvent created =
-                    (TransactionCreatedEvent) newEvents.getFirst();
+                    (TransactionCreatedEvent) aggregate.getUncommittedEvents().getFirst();
 
-            for (TransactionEvent event : newEvents) {
-                eventStore.append(event);
-            }
-            aggregate.markEventsAsCommitted();
+            commitAndPublish(aggregate);
 
             transactionEventPublisher.publishCreated(aggregate);
             paymentSagaInitiator.initiatePayment(aggregate);
+            transactionQueryHandler.evictCacheForAccount(aggregate.getAccountId());
 
             log.info(
                     "Transaction created: {} for account: {}, amount: {} {}",
@@ -122,13 +129,9 @@ public class TransactionCommandHandler {
         try {
             TransactionAggregate aggregate = TransactionAggregate.reconstitute(events);
             aggregate.complete(command.paymentId(), command.correlationId());
-            List<TransactionEvent> newEvents =
-                    new ArrayList<>(aggregate.getUncommittedEvents());
-            for (TransactionEvent event : newEvents) {
-                eventStore.append(event);
-            }
-            aggregate.markEventsAsCommitted();
+            commitAndPublish(aggregate);
             transactionEventPublisher.publishCompleted(aggregate);
+            transactionQueryHandler.evictCacheForAccount(aggregate.getAccountId());
             log.info("Transaction completed: {}", command.transactionId());
         } catch (IllegalStateException e) {
             throw FinFlowException.badRequest(ErrorCode.VALIDATION_FAILED, e.getMessage());
@@ -145,13 +148,9 @@ public class TransactionCommandHandler {
             TransactionAggregate aggregate = TransactionAggregate.reconstitute(events);
             aggregate.reverse(
                     command.reversalReason(), command.reversedBy(), command.correlationId());
-            List<TransactionEvent> newEvents =
-                    new ArrayList<>(aggregate.getUncommittedEvents());
-            for (TransactionEvent event : newEvents) {
-                eventStore.append(event);
-            }
-            aggregate.markEventsAsCommitted();
+            commitAndPublish(aggregate);
             transactionEventPublisher.publishReversed(aggregate);
+            transactionQueryHandler.evictCacheForAccount(aggregate.getAccountId());
             log.info(
                     "Transaction reversed: {} by: {}",
                     command.transactionId(),
@@ -159,5 +158,18 @@ public class TransactionCommandHandler {
         } catch (IllegalStateException e) {
             throw FinFlowException.badRequest(ErrorCode.VALIDATION_FAILED, e.getMessage());
         }
+    }
+
+    private void commitAndPublish(TransactionAggregate aggregate) {
+        List<TransactionEvent> events = new ArrayList<>(aggregate.getUncommittedEvents());
+        for (TransactionEvent event : events) {
+            eventStore.append(event);
+            applicationEventPublisher.publishEvent(event);
+        }
+        aggregate.markEventsAsCommitted();
+        log.debug(
+                "Committed and published {} events for aggregate: {}",
+                events.size(),
+                aggregate.getTransactionId());
     }
 }

@@ -16,8 +16,10 @@ import com.finflow.transaction.command.CreateTransactionCommand;
 import com.finflow.transaction.command.TransactionCommandHandler;
 import com.finflow.transaction.event.EventStore;
 import com.finflow.transaction.event.TransactionCreatedEvent;
+import com.finflow.transaction.event.TransactionEvent;
 import com.finflow.transaction.grpc.FraudCheckGrpcClient;
 import com.finflow.transaction.kafka.TransactionEventPublisher;
+import com.finflow.transaction.query.TransactionQueryHandler;
 import com.finflow.transaction.saga.PaymentSagaInitiator;
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -29,17 +31,22 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionCommandHandlerTest {
 
     @Mock private EventStore eventStore;
 
+    @Mock private ApplicationEventPublisher applicationEventPublisher;
+
     @Mock private FraudCheckGrpcClient fraudCheckGrpcClient;
 
     @Mock private TransactionEventPublisher transactionEventPublisher;
 
     @Mock private PaymentSagaInitiator paymentSagaInitiator;
+
+    @Mock private TransactionQueryHandler transactionQueryHandler;
 
     @InjectMocks private TransactionCommandHandler handler;
 
@@ -70,6 +77,7 @@ class TransactionCommandHandlerTest {
 
         assertThat(result).isNotNull();
         verify(eventStore, atLeastOnce()).append(any());
+        verify(applicationEventPublisher, atLeastOnce()).publishEvent(any(TransactionEvent.class));
         verify(transactionEventPublisher).publishCreated(any());
         verify(paymentSagaInitiator).initiatePayment(any());
     }
@@ -90,6 +98,7 @@ class TransactionCommandHandlerTest {
 
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.TRANSACTION_FLAGGED_AS_FRAUD);
         verify(eventStore, atLeastOnce()).append(any());
+        verify(applicationEventPublisher, atLeastOnce()).publishEvent(any(TransactionEvent.class));
         verify(transactionEventPublisher).publishFailed(any());
         verify(transactionEventPublisher, never()).publishCreated(any());
         verify(paymentSagaInitiator, never()).initiatePayment(any());
