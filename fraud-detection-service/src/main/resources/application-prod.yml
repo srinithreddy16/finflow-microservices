@@ -1,0 +1,33 @@
+server:
+  port: 8086
+
+spring:
+  datasource:
+    url: ${FRAUD_DB_URL}
+    username: ${FRAUD_DB_USERNAME}
+    password: ${FRAUD_DB_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+grpc:
+  server:
+    port: 9001
+    security:
+      enabled: false
+
+logging:
+  level:
+    com.finflow.fraud: INFO
+    net.devh.boot.grpc: WARN
+    org.springframework.kafka: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1

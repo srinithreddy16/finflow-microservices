@@ -1,0 +1,97 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: fraud-detection-service
+
+  datasource:
+    url: ${FRAUD_DB_URL:jdbc:postgresql://localhost:5432/fraud_db}
+    username: ${FRAUD_DB_USERNAME:finflow}
+    password: ${FRAUD_DB_PASSWORD:finflow}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: fraud-detection-internal
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9090/realms/finflow}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:9090/realms/finflow/protocol/openid-connect/certs}
+
+grpc:
+  server:
+    port: 9001
+    security:
+      # Internal VPC only — TLS terminated at load balancer
+      enabled: false
+
+fraud:
+  rules:
+    amount-threshold:
+      high: 10000
+      very-high: 50000
+    velocity:
+      max-per-minute: 5
+      window-seconds: 60
+    # score >= 70 = flagged
+    score-threshold: 70
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      external-kyc:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    com.finflow.fraud: DEBUG
+    net.devh.boot.grpc: INFO
+    org.springframework.kafka: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"
