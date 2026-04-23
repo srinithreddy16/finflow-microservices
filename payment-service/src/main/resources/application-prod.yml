@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${PAYMENT_DB_URL}
+    username: ${PAYMENT_DB_USERNAME}
+    password: ${PAYMENT_DB_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+logging:
+  level:
+    com.finflow.payment: INFO
+    org.springframework.amqp: WARN
+    org.springframework.kafka: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1
