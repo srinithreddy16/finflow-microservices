@@ -1,0 +1,89 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: saga-orchestrator-service
+
+  datasource:
+    url: ${SAGA_DB_URL:jdbc:postgresql://localhost:5432/saga_db}
+    username: ${SAGA_DB_USERNAME:finflow}
+    password: ${SAGA_DB_PASSWORD:finflow}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:finflow}
+    password: ${RABBITMQ_PASSWORD:finflow}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 1
+        retry:
+          enabled: true
+          initial-interval: 2000
+          max-attempts: 3
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9090/realms/finflow}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:9090/realms/finflow/protocol/openid-connect/certs}
+
+saga:
+  timeout:
+    step-timeout-minutes: 5
+    # how long to wait for a reply before timing out a step
+    total-timeout-minutes: 30
+    # max total saga duration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    com.finflow.saga: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.transaction: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

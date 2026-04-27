@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: ${SAGA_DB_URL}
+    username: ${SAGA_DB_USERNAME}
+    password: ${SAGA_DB_PASSWORD}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+logging:
+  level:
+    com.finflow.saga: INFO
+    org.springframework.amqp: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1
