@@ -1,0 +1,249 @@
+# FinFlow GraphQL Schema
+#
+# Design principles:
+# 1. All monetary values use BigDecimal scalar (never Float — precision matters)
+# 2. All timestamps use DateTime scalar (always UTC)
+# 3. All dates use Date scalar (YYYY-MM-DD)
+# 4. Nested types (account in Transaction, fraudScore) are resolved
+#    using DataLoaders to prevent N+1 queries
+# 5. Subscriptions use WebSocket transport
+#
+# Authentication: All queries require a valid JWT Bearer token
+# passed via the Authorization header.
+
+# ── Custom Scalars ─────────────────────────────────────────────────────────
+scalar Date          # java.time.LocalDate — format: "2026-03-01"
+scalar DateTime      # java.time.Instant — format: "2026-03-01T10:15:30Z"
+scalar BigDecimal    # java.math.BigDecimal — for precise monetary values
+
+# ── Root Types ─────────────────────────────────────────────────────────────
+type Query {
+    # Transaction queries
+    transaction(id: ID!): Transaction
+    transactionsByAccount(
+        accountId: ID!
+        page: Int = 0
+        size: Int = 20
+        status: TransactionStatus
+    ): TransactionPage
+
+    # Analytics queries
+    analyticsSummary(
+        accountId: ID!
+        fromDate: Date
+        toDate: Date
+    ): AnalyticsSummary
+
+    dailyMetrics(
+        accountId: ID!
+        date: Date
+    ): DailyMetrics
+
+    accountHistory(
+        accountId: ID!
+        days: Int = 30
+    ): [DailyMetrics!]!
+
+    platformSummary: PlatformSummary
+
+    # Report queries
+    report(id: ID!): Report
+    reportsByAccount(
+        accountId: ID!
+        status: ReportStatus
+        page: Int = 0
+        size: Int = 10
+    ): ReportPage
+
+    # Account queries
+    account(id: ID!): Account
+    accountByEmail(email: String!): Account
+    tenant(id: ID!): Tenant
+}
+
+type Mutation {
+    # Report mutations (triggers generation — async result)
+    generateReport(input: GenerateReportInput!): Report!
+}
+
+type Subscription {
+    # Live fraud alert feed — streams fraud events in real time
+    fraudAlerts(accountId: ID): FraudAlert
+    # Live transaction status updates
+    transactionUpdates(accountId: ID!): Transaction
+}
+
+# ── Transaction Types ───────────────────────────────────────────────────────
+type Transaction {
+    id: ID!
+    accountId: ID!
+    account: Account           # resolved via AccountDataLoader (N+1 prevention)
+    amount: BigDecimal!
+    currency: String!
+    status: TransactionStatus!
+    description: String
+    initiatedBy: String
+    paymentId: String
+    failureReason: String
+    failureCode: String
+    reversalReason: String
+    reversedBy: String
+    correlationId: String
+    createdAt: DateTime!
+    completedAt: DateTime
+    reversedAt: DateTime
+    updatedAt: DateTime!
+    fraudScore: FraudScore     # resolved via FraudScoreDataLoader
+}
+
+type TransactionPage {
+    content: [Transaction!]!
+    page: Int!
+    size: Int!
+    totalElements: Int!
+    totalPages: Int!
+    first: Boolean!
+    last: Boolean!
+}
+
+enum TransactionStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    REVERSED
+}
+
+# ── Analytics Types ──────────────────────────────────────────────────────────
+type AnalyticsSummary {
+    accountId: ID!
+    totalTransactions: Int!
+    completedTransactions: Int!
+    failedTransactions: Int!
+    reversedTransactions: Int!
+    totalVolume: BigDecimal!
+    completedVolume: BigDecimal!
+    fraudFlags: Int!
+    fraudRate: BigDecimal!
+    avgTransactionAmount: BigDecimal!
+    currency: String!
+    fromDate: Date!
+    toDate: Date!
+    calculatedAt: DateTime!
+}
+
+type DailyMetrics {
+    date: Date!
+    totalTransactions: Int!
+    completedTransactions: Int!
+    failedTransactions: Int!
+    totalVolume: BigDecimal!
+    completedVolume: BigDecimal!
+    fraudFlags: Int!
+    currency: String!
+}
+
+type PlatformSummary {
+    totalTransactionsToday: Int!
+    completedTransactionsToday: Int!
+    totalVolumeToday: BigDecimal!
+    fraudFlagsToday: Int!
+    fraudRateToday: BigDecimal!
+    activeAccounts: Int!
+    calculatedAt: DateTime!
+}
+
+type FraudScore {
+    transactionId: ID!
+    score: Int!
+    flagged: Boolean!
+    reason: String
+    failureCode: String
+    evaluatedAt: DateTime
+}
+
+type FraudAlert {
+    transactionId: ID!
+    accountId: ID!
+    fraudScore: Int!
+    reason: String!
+    failureCode: String!
+    occurredAt: DateTime!
+}
+
+# ── Report Types ──────────────────────────────────────────────────────────────
+type Report {
+    id: ID!
+    accountId: ID!
+    name: String!
+    status: ReportStatus!
+    downloadUrl: String         # presigned S3 URL — only set when status=READY
+    generatedAt: DateTime
+    expiresAt: DateTime         # when the presigned URL expires
+    createdAt: DateTime!
+    reportType: ReportType!
+}
+
+type ReportPage {
+    content: [Report!]!
+    page: Int!
+    size: Int!
+    totalElements: Int!
+    totalPages: Int!
+}
+
+enum ReportStatus {
+    PENDING
+    GENERATING
+    READY
+    FAILED
+}
+
+enum ReportType {
+    TRANSACTION_HISTORY
+    ANALYTICS_SUMMARY
+    FRAUD_REPORT
+}
+
+input GenerateReportInput {
+    accountId: ID!
+    reportType: ReportType!
+    fromDate: Date
+    toDate: Date
+    format: ReportFormat = PDF
+}
+
+enum ReportFormat {
+    PDF
+    CSV
+}
+
+# ── Account Types ─────────────────────────────────────────────────────────────
+type Account {
+    id: ID!
+    email: String!
+    firstName: String!
+    lastName: String!
+    phoneNumber: String
+    status: AccountStatus!
+    tenantId: String
+    kycVerified: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    tenant: Tenant             # resolved via nested resolver
+}
+
+type Tenant {
+    id: ID!
+    name: String!
+    slug: String!
+    ownerEmail: String!
+    status: String!
+    createdAt: DateTime!
+}
+
+enum AccountStatus {
+    PENDING
+    ACTIVE
+    SUSPENDED
+    CLOSED
+}

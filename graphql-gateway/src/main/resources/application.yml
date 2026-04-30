@@ -1,0 +1,67 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: graphql-gateway
+
+  main:
+    # Forces Spring MVC mode even though WebFlux is on the classpath.
+    # WebFlux is used ONLY for WebClient — not for the web server itself.
+    web-application-type: servlet
+
+  graphql:
+    schema:
+      locations: classpath:graphql/
+      file-extensions: .graphqls
+      introspection:
+        enabled: true          # disable in prod for security
+    graphiql:
+      enabled: true            # dev only — disable in prod
+    websocket:
+      path: /graphql           # WebSocket on same path as HTTP
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:9090/realms/finflow}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:9090/realms/finflow/protocol/openid-connect/certs}
+
+service:
+  analytics:
+    url: ${ANALYTICS_SERVICE_URL:http://localhost:8088}
+  report:
+    url: ${REPORT_SERVICE_URL:http://localhost:8089}
+  account:
+    url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+
+logging:
+  level:
+    com.finflow.graphql: DEBUG
+    graphql: INFO
+    org.springframework.graphql: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"

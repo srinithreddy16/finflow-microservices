@@ -1,0 +1,37 @@
+spring:
+  graphql:
+    graphiql:
+      enabled: false           # disabled in production
+    schema:
+      introspection:
+        enabled: false         # disabled for security in production
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+service:
+  analytics:
+    url: ${ANALYTICS_SERVICE_URL}
+  report:
+    url: ${REPORT_SERVICE_URL}
+  account:
+    url: ${ACCOUNT_SERVICE_URL}
+
+logging:
+  level:
+    com.finflow.graphql: INFO
+    graphql: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1
