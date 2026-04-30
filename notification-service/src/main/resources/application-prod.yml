@@ -1,0 +1,34 @@
+spring:
+  datasource:
+    url: ${NOTIFICATION_DB_URL}
+    username: ${NOTIFICATION_DB_USERNAME}
+    password: ${NOTIFICATION_DB_PASSWORD}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+notification:
+  email:
+    enabled: true
+  sms:
+    enabled: true
+
+logging:
+  level:
+    com.finflow.notification: INFO
+    org.springframework.amqp: WARN
+    org.springframework.kafka: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1
