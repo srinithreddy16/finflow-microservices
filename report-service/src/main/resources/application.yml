@@ -68,8 +68,6 @@ logging:
   level:
     com.finflow.report: DEBUG
     software.amazon.awssdk: INFO
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"
 
 springdoc:
   api-docs:

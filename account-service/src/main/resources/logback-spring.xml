@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Spring Boot default console logging -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Service name from Spring application.name -->
+    <springProperty scope="context" name="serviceName"
+                    source="spring.application.name"
+                    defaultValue="finflow-service"/>
+
+    <!-- Console appender for local development -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level
+                [%X{traceId},%X{spanId}] [%X{correlationId}]
+                ${serviceName} %logger{36} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- JSON appender for ELK Stack -->
+    <!-- In production or when ELK_ENABLED=true, use this appender -->
+    <springProfile name="elk">
+        <appender name="JSON_CONSOLE"
+                  class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <pattern>
+                    {"timestamp":"%d{yyyy-MM-ddTHH:mm:ss.SSSZ}",
+                     "level":"%-5level",
+                     "service_name":"${serviceName}",
+                     "thread":"%thread",
+                     "logger":"%logger{36}",
+                     "message":"%msg",
+                     "traceId":"%X{traceId}",
+                     "spanId":"%X{spanId}",
+                     "correlationId":"%X{correlationId}"}%n
+                </pattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- Default profile (local dev) -->
+    <springProfile name="!elk">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <!-- Service-specific log levels -->
+        <logger name="com.finflow" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <logger name="org.springframework.web" level="INFO"/>
+        <logger name="org.springframework.security" level="INFO"/>
+        <logger name="org.hibernate.SQL" level="INFO"/>
+        <logger name="org.springframework.amqp" level="INFO"/>
+        <logger name="org.springframework.kafka" level="INFO"/>
+        <logger name="net.devh.boot.grpc" level="INFO"/>
+        <logger name="software.amazon.awssdk" level="WARN"/>
+    </springProfile>
+
+</configuration>

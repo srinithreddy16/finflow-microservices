@@ -66,5 +66,3 @@ logging:
     com.finflow.graphql: DEBUG
     graphql: INFO
     org.springframework.graphql: INFO
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"

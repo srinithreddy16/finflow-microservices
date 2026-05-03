@@ -70,5 +70,3 @@ logging:
   level:
     com.finflow.analytics: DEBUG
     org.springframework.kafka: INFO
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"
