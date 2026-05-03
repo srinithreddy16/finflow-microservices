@@ -1,0 +1,110 @@
+global:
+  scrape_interval: 15s          # scrape every 15 seconds
+  evaluation_interval: 15s      # evaluate rules every 15 seconds
+  scrape_timeout: 10s
+
+# Alertmanager configuration (optional — add later)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+scrape_configs:
+
+  # ── API Gateway ────────────────────────────────────────────────────────────
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['api-gateway:8080']
+        labels:
+          service: 'api-gateway'
+          environment: 'local'
+
+  # ── GraphQL Gateway ────────────────────────────────────────────────────────
+  - job_name: 'graphql-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['graphql-gateway:8081']
+        labels:
+          service: 'graphql-gateway'
+          environment: 'local'
+
+  # ── Account Service ────────────────────────────────────────────────────────
+  - job_name: 'account-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['account-service:8082']
+        labels:
+          service: 'account-service'
+          environment: 'local'
+
+  # ── Transaction Service ────────────────────────────────────────────────────
+  - job_name: 'transaction-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['transaction-service:8083']
+        labels:
+          service: 'transaction-service'
+          environment: 'local'
+
+  # ── Payment Service ────────────────────────────────────────────────────────
+  - job_name: 'payment-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['payment-service:8084']
+        labels:
+          service: 'payment-service'
+          environment: 'local'
+
+  # ── Saga Orchestrator ──────────────────────────────────────────────────────
+  - job_name: 'saga-orchestrator-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['saga-orchestrator-service:8085']
+        labels:
+          service: 'saga-orchestrator-service'
+          environment: 'local'
+
+  # ── Fraud Detection ────────────────────────────────────────────────────────
+  - job_name: 'fraud-detection-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['fraud-detection-service:8086']
+        labels:
+          service: 'fraud-detection-service'
+          environment: 'local'
+
+  # ── Notification Service ───────────────────────────────────────────────────
+  - job_name: 'notification-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['notification-service:8087']
+        labels:
+          service: 'notification-service'
+          environment: 'local'
+
+  # ── Analytics Service ──────────────────────────────────────────────────────
+  - job_name: 'analytics-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['analytics-service:8088']
+        labels:
+          service: 'analytics-service'
+          environment: 'local'
+
+  # ── Report Service ─────────────────────────────────────────────────────────
+  - job_name: 'report-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['report-service:8089']
+        labels:
+          service: 'report-service'
+          environment: 'local'
+
+  # ── Prometheus self-monitoring ─────────────────────────────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          environment: 'local'

@@ -1,0 +1,25 @@
+# Kibana configuration for FinFlow log visualization
+server.name: finflow-kibana
+server.host: 0.0.0.0
+server.port: 5601
+
+# Elasticsearch connection
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# Disable security for local dev
+xpack.security.enabled: false
+
+# Index pattern
+kibana.index: ".kibana"
+
+# Logging
+logging.appenders.default:
+  type: console
+  layout:
+    type: pattern
+    pattern: "[%date][%level][%logger] %message"
+logging.root.level: warn
+
+# Telemetry (disable for local dev)
+telemetry.enabled: false
+telemetry.optIn: false

@@ -1,0 +1,24 @@
+# Elasticsearch configuration for FinFlow log storage
+cluster.name: finflow-logs
+node.name: finflow-es-node
+
+# Network
+network.host: 0.0.0.0
+http.port: 9200
+
+# Discovery (single node for local dev)
+discovery.type: single-node
+
+# Security (disabled for local dev — enable for production)
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# Index settings
+action.auto_create_index: true
+
+# Memory
+bootstrap.memory_lock: false
+
+# Paths (using Docker volumes)
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs

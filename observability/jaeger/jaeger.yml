@@ -1,0 +1,59 @@
+# Jaeger Configuration for FinFlow
+#
+# Services → OTLP → Jaeger Collector → Jaeger Query → Grafana/UI
+#
+# Local setup:
+# - Services send traces to http://localhost:4318/v1/traces (OTLP HTTP)
+# - View traces at http://localhost:16686
+# - Grafana links traces via Jaeger datasource
+#
+# Trace propagation:
+# - API Gateway injects X-Trace-Id and X-Correlation-Id headers
+# - All downstream services propagate these headers
+# - Micrometer Tracing automatically creates child spans
+# - Each service appears as a separate node in the trace waterfall
+
+# Jaeger all-in-one configuration for local development
+# In production, use separate collector, query, and storage components
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317    # OTLP gRPC — services send traces here
+      http:
+        endpoint: 0.0.0.0:4318    # OTLP HTTP — alternative endpoint
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # Add service name as resource attribute if missing
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+
+exporters:
+  jaeger:
+    endpoint: localhost:14250
+    tls:
+      insecure: true
+
+  # Also export to stdout for debugging (optional)
+  logging:
+    loglevel: warn
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [jaeger, logging]
