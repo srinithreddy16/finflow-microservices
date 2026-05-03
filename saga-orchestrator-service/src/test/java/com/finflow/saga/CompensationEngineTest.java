@@ -11,10 +11,10 @@ import com.finflow.saga.state.SagaInstance;
 import com.finflow.saga.state.SagaInstanceRepository;
 import com.finflow.saga.state.SagaState;
 import com.finflow.saga.steps.SagaStep;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -33,7 +33,7 @@ class CompensationEngineTest {
     @Mock private SagaStep step3;
     @Mock private SagaStep step4;
 
-    @InjectMocks private CompensationEngine compensationEngine;
+    private CompensationEngine compensationEngine;
 
     @BeforeEach
     void setUp() {
@@ -41,7 +41,8 @@ class CompensationEngineTest {
                 new CompensationEngine(
                         java.util.List.of(step4, step2, step1, step3),
                         rabbitTemplate,
-                        sagaInstanceRepository);
+                        sagaInstanceRepository,
+                        new SimpleMeterRegistry());
         when(step1.getStepNumber()).thenReturn(1);
         when(step2.getStepNumber()).thenReturn(2);
         when(step3.getStepNumber()).thenReturn(3);

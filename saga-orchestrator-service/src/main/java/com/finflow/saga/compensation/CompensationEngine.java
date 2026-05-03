@@ -4,6 +4,7 @@ import com.finflow.saga.state.SagaInstance;
 import com.finflow.saga.state.SagaInstanceRepository;
 import com.finflow.saga.state.SagaState;
 import com.finflow.saga.steps.SagaStep;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -33,8 +34,12 @@ public class CompensationEngine {
     private final List<SagaStep> steps;
     private final RabbitTemplate rabbitTemplate;
     private final SagaInstanceRepository sagaInstanceRepository;
+    private final MeterRegistry meterRegistry;
 
     public void startCompensation(SagaInstance saga, String failureReason, int failedAtStep) {
+        meterRegistry
+                .counter("saga.compensation.total", "type", "ACCOUNT_ONBOARDING")
+                .increment();
         log.warn(
                 "Starting compensation for saga: {}, failed at step: {}, reason: {}",
                 saga.getSagaId(),

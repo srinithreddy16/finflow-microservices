@@ -8,6 +8,7 @@ import com.finflow.proto.fraud.FraudCheckProto.FraudCheckResponse;
 import com.finflow.proto.fraud.FraudCheckServiceGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class FraudCheckGrpcService extends FraudCheckServiceGrpc.FraudCheckServi
     private static final String CHECK_TYPE_SYNC_GRPC = "SYNC_GRPC";
 
     private final FraudScoringService fraudScoringService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public void checkTransaction(
@@ -79,6 +81,18 @@ public class FraudCheckGrpcService extends FraudCheckServiceGrpc.FraudCheckServi
 
             FraudScore fraudScore =
                     fraudScoringService.evaluateAndPersist(domainRequest, CHECK_TYPE_SYNC_GRPC);
+
+            meterRegistry
+                    .counter("fraud.checks.total", "service", "fraud-detection-service")
+                    .increment();
+            if (fraudScore.flagged()) {
+                meterRegistry
+                        .counter("fraud.checks.flagged", "service", "fraud-detection-service")
+                        .increment();
+            }
+            meterRegistry
+                    .summary("fraud.score.distribution", "service", "fraud-detection-service")
+                    .record(fraudScore.score());
 
             FraudCheckResponse response =
                     FraudCheckResponse.newBuilder()

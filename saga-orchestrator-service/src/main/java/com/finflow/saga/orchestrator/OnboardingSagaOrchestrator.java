@@ -8,6 +8,10 @@ import com.finflow.saga.state.SagaInstance;
 import com.finflow.saga.state.SagaInstanceRepository;
 import com.finflow.saga.state.SagaState;
 import com.finflow.saga.steps.SagaStep;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -38,6 +42,22 @@ public class OnboardingSagaOrchestrator {
     private final List<SagaStep> steps;
     private final CompensationEngine compensationEngine;
     private final RabbitTemplate rabbitTemplate;
+    private final MeterRegistry meterRegistry;
+
+    @PostConstruct
+    void registerActiveSagaGauge() {
+        Gauge.builder(
+                        "saga.active.count",
+                        sagaInstanceRepository,
+                        repo ->
+                                repo.countByStateNotIn(
+                                        List.of(
+                                                SagaState.COMPLETED,
+                                                SagaState.FAILED,
+                                                SagaState.COMPENSATION_FAILED)))
+                .description("Number of active (non-terminal) saga instances")
+                .register(meterRegistry);
+    }
 
     public record OnboardingRequest(
             String email,
@@ -79,6 +99,7 @@ public class OnboardingSagaOrchestrator {
                         .build();
 
         saga = sagaInstanceRepository.save(saga);
+        meterRegistry.counter("saga.started.total", "type", "ACCOUNT_ONBOARDING").increment();
         executeNextStep(saga);
         log.info("Onboarding saga started: {} for email: {}", saga.getSagaId(), saga.getEmail());
         return saga;
@@ -128,6 +149,7 @@ public class OnboardingSagaOrchestrator {
         if (saga.getState() == SagaState.COMPLETED) {
             saga.setCompletedAt(Instant.now());
             sagaInstanceRepository.save(saga);
+            recordSagaCompletionSuccess(saga);
             log.info("Saga {} COMPLETED successfully for email: {}", saga.getSagaId(), saga.getEmail());
             return;
         }
@@ -153,6 +175,8 @@ public class OnboardingSagaOrchestrator {
 
         log.warn("Step {} FAILED for saga: {}, error: {}", stepName, sagaId, errorMessage);
 
+        meterRegistry.counter("saga.failed.total", "type", "ACCOUNT_ONBOARDING").increment();
+
         int failedStep =
                 sortedSteps().stream()
                         .filter(s -> s.getStepName().equals(stepName))
@@ -173,6 +197,7 @@ public class OnboardingSagaOrchestrator {
             saga.setState(SagaState.COMPLETED);
             saga.setCompletedAt(Instant.now());
             sagaInstanceRepository.save(saga);
+            recordSagaCompletionSuccess(saga);
             log.info("All steps completed -- saga {} marked COMPLETED", saga.getSagaId());
             return;
         }
@@ -218,5 +243,14 @@ public class OnboardingSagaOrchestrator {
 
     private List<SagaStep> sortedSteps() {
         return steps.stream().sorted(Comparator.comparingInt(SagaStep::getStepNumber)).toList();
+    }
+
+    private void recordSagaCompletionSuccess(SagaInstance saga) {
+        meterRegistry.counter("saga.completed.total", "type", "ACCOUNT_ONBOARDING").increment();
+        Instant createdAt = saga.getCreatedAt() != null ? saga.getCreatedAt() : Instant.now();
+        Duration duration = Duration.between(createdAt, Instant.now());
+        meterRegistry
+                .timer("saga.duration", "type", "ACCOUNT_ONBOARDING", "outcome", "success")
+                .record(duration);
     }
 }

@@ -21,13 +21,13 @@ import com.finflow.transaction.grpc.FraudCheckGrpcClient;
 import com.finflow.transaction.kafka.TransactionEventPublisher;
 import com.finflow.transaction.query.TransactionQueryHandler;
 import com.finflow.transaction.saga.PaymentSagaInitiator;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,12 +48,21 @@ class TransactionCommandHandlerTest {
 
     @Mock private TransactionQueryHandler transactionQueryHandler;
 
-    @InjectMocks private TransactionCommandHandler handler;
+    private TransactionCommandHandler handler;
 
     private CreateTransactionCommand createCommand;
 
     @BeforeEach
     void setUp() {
+        handler =
+                new TransactionCommandHandler(
+                        eventStore,
+                        applicationEventPublisher,
+                        fraudCheckGrpcClient,
+                        transactionEventPublisher,
+                        paymentSagaInitiator,
+                        transactionQueryHandler,
+                        new SimpleMeterRegistry());
         createCommand =
                 new CreateTransactionCommand(
                         "tx-001",

@@ -12,6 +12,7 @@ import com.finflow.fraud.model.FraudScore;
 import com.finflow.fraud.service.FraudScoringService;
 import com.finflow.proto.fraud.FraudCheckProto;
 import com.finflow.proto.fraud.FraudCheckServiceGrpc;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -39,7 +40,8 @@ class FraudCheckGrpcServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        fraudCheckGrpcService = new FraudCheckGrpcService(fraudScoringService);
+        fraudCheckGrpcService =
+                new FraudCheckGrpcService(fraudScoringService, new SimpleMeterRegistry());
         String serverName = InProcessServerBuilder.generateName();
         grpcServer =
                 InProcessServerBuilder.forName(serverName)

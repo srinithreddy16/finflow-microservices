@@ -12,6 +12,7 @@ import com.finflow.transaction.grpc.FraudCheckGrpcClient;
 import com.finflow.transaction.kafka.TransactionEventPublisher;
 import com.finflow.transaction.query.TransactionQueryHandler;
 import com.finflow.transaction.saga.PaymentSagaInitiator;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class TransactionCommandHandler {
     private final TransactionEventPublisher transactionEventPublisher;
     private final PaymentSagaInitiator paymentSagaInitiator;
     @Lazy private final TransactionQueryHandler transactionQueryHandler;
+    private final MeterRegistry meterRegistry;
 
     /*
     Checks if this transaction ID already exists in the EventStore.
@@ -81,6 +83,7 @@ public class TransactionCommandHandler {
             } catch (IllegalStateException e) {
                 throw FinFlowException.badRequest(ErrorCode.VALIDATION_FAILED, e.getMessage());
             }
+            meterRegistry.counter("transaction.fraud.rejected.total").increment();
             throw FinFlowException.badRequest(
                     ErrorCode.TRANSACTION_FLAGGED_AS_FRAUD,
                     "Transaction flagged by fraud detection: "
@@ -102,6 +105,13 @@ public class TransactionCommandHandler {
                     (TransactionCreatedEvent) aggregate.getUncommittedEvents().getFirst();
 
             commitAndPublish(aggregate);
+
+            meterRegistry
+                    .counter("transaction.created.total", "currency", command.currency())
+                    .increment();
+            meterRegistry
+                    .summary("transaction.amount", "currency", command.currency())
+                    .record(command.amount().doubleValue());
 
             transactionEventPublisher.publishCreated(aggregate);
             paymentSagaInitiator.initiatePayment(aggregate);
@@ -130,6 +140,7 @@ public class TransactionCommandHandler {
             TransactionAggregate aggregate = TransactionAggregate.reconstitute(events);
             aggregate.complete(command.paymentId(), command.correlationId());
             commitAndPublish(aggregate);
+            meterRegistry.counter("transaction.completed.total").increment();
             transactionEventPublisher.publishCompleted(aggregate);
             transactionQueryHandler.evictCacheForAccount(aggregate.getAccountId());
             log.info("Transaction completed: {}", command.transactionId());
@@ -149,6 +160,7 @@ public class TransactionCommandHandler {
             aggregate.reverse(
                     command.reversalReason(), command.reversedBy(), command.correlationId());
             commitAndPublish(aggregate);
+            meterRegistry.counter("transaction.reversed.total").increment();
             transactionEventPublisher.publishReversed(aggregate);
             transactionQueryHandler.evictCacheForAccount(aggregate.getAccountId());
             log.info(

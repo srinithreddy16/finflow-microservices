@@ -21,5 +21,7 @@ public interface SagaInstanceRepository extends JpaRepository<SagaInstance, Stri
 
     long countByState(SagaState state);
 
+    long countByStateNotIn(List<SagaState> states);
+
     Page<SagaInstance> findByStateOrderByCreatedAtDesc(SagaState state, Pageable pageable);
 }
