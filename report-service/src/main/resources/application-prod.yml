@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${REPORT_DB_URL}
+    username: ${REPORT_DB_USERNAME}
+    password: ${REPORT_DB_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI}
+
+aws:
+  region: ${AWS_REGION}
+  s3:
+    bucket-name: ${AWS_S3_BUCKET_NAME}
+    presigned-url-expiry-minutes: 60
+    # Empty in production to use real AWS S3 endpoint.
+    endpoint-override:
+
+logging:
+  level:
+    com.finflow.report: INFO
+    software.amazon.awssdk: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1
