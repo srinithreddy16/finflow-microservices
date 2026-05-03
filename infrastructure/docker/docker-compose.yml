@@ -1,23 +1,29 @@
-name: finflow-infra
+version: '3.8'
 
 services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
   keycloak-db:
     image: postgres:16-alpine
+    container_name: finflow-keycloak-db
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: keycloak
     volumes:
       - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 10
-      start_period: 10s
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.5
+    container_name: finflow-keycloak
     ports:
       - "9090:8080"
     command: start-dev --import-realm
@@ -28,49 +34,51 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
+      KC_HEALTH_ENABLED: "true"
     volumes:
-      - ../keycloak/finflow-realm.json:/opt/keycloak/data/import/finflow-realm.json:ro
+      - ../../infrastructure/keycloak/finflow-realm.json:/opt/keycloak/data/import/finflow-realm.json
     depends_on:
       keycloak-db:
         condition: service_healthy
+    networks:
+      - finflow-network
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q '200'",
-        ]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
       interval: 15s
       timeout: 5s
       retries: 10
-      start_period: 120s
+      start_period: 30s
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    hostname: kafka
+    container_name: finflow-kafka
     ports:
       - "9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CLUSTER_ID: finflow-kafka-cluster-001
     volumes:
       - kafka-data:/var/lib/kafka/data
+    networks:
+      - finflow-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 10s
       timeout: 10s
-      retries: 12
-      start_period: 40s
+      retries: 10
+      start_period: 20s
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
+    container_name: finflow-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -79,29 +87,500 @@ services:
       RABBITMQ_DEFAULT_PASS: finflow
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - finflow-network
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 30s
+      retries: 10
 
   redis:
     image: redis:7.2-alpine
+    container_name: finflow-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
+    networks:
+      - finflow-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 5s
+
+  # ── Databases (one per service) ───────────────────────────────────────────
+
+  account-db:
+    image: postgres:16-alpine
+    container_name: finflow-account-db
+    environment:
+      POSTGRES_DB: account_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - account-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d account_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  transaction-db:
+    image: postgres:16-alpine
+    container_name: finflow-transaction-db
+    environment:
+      POSTGRES_DB: transaction_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - transaction-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d transaction_db"]
+      interval: 5s
+      retries: 10
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: finflow-payment-db
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d payment_db"]
+      interval: 5s
+      retries: 10
+
+  saga-db:
+    image: postgres:16-alpine
+    container_name: finflow-saga-db
+    environment:
+      POSTGRES_DB: saga_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - saga-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d saga_db"]
+      interval: 5s
+      retries: 10
+
+  fraud-db:
+    image: postgres:16-alpine
+    container_name: finflow-fraud-db
+    environment:
+      POSTGRES_DB: fraud_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - fraud-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d fraud_db"]
+      interval: 5s
+      retries: 10
+
+  notification-db:
+    image: postgres:16-alpine
+    container_name: finflow-notification-db
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d notification_db"]
+      interval: 5s
+      retries: 10
+
+  analytics-db:
+    image: postgres:16-alpine
+    container_name: finflow-analytics-db
+    environment:
+      POSTGRES_DB: analytics_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - analytics-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d analytics_db"]
+      interval: 5s
+      retries: 10
+
+  report-db:
+    image: postgres:16-alpine
+    container_name: finflow-report-db
+    environment:
+      POSTGRES_DB: report_db
+      POSTGRES_USER: finflow
+      POSTGRES_PASSWORD: finflow
+    volumes:
+      - report-db-data:/var/lib/postgresql/data
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finflow -d report_db"]
+      interval: 5s
+      retries: 10
+
+  # ── Application Services ──────────────────────────────────────────────────
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: api-gateway/Dockerfile
+    container_name: finflow-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      TRANSACTION_SERVICE_URL: http://transaction-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+      ANALYTICS_SERVICE_URL: http://analytics-service:8088
+      REPORT_SERVICE_URL: http://report-service:8089
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: api-gateway
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  account-service:
+    build:
+      context: ../..
+      dockerfile: account-service/Dockerfile
+    container_name: finflow-account-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      ACCOUNT_DB_URL: jdbc:postgresql://account-db:5432/account_db
+      ACCOUNT_DB_USERNAME: finflow
+      ACCOUNT_DB_PASSWORD: finflow
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: finflow
+      RABBITMQ_PASSWORD: finflow
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_REALM: finflow
+      KEYCLOAK_CLIENT_ID: finflow-internal
+      KEYCLOAK_CLIENT_SECRET: internal-secret
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: account-service
+    depends_on:
+      account-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  transaction-service:
+    build:
+      context: ../..
+      dockerfile: transaction-service/Dockerfile
+    container_name: finflow-transaction-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TRANSACTION_DB_URL: jdbc:postgresql://transaction-db:5432/transaction_db
+      TRANSACTION_DB_USERNAME: finflow
+      TRANSACTION_DB_PASSWORD: finflow
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: finflow
+      RABBITMQ_PASSWORD: finflow
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      FRAUD_SERVICE_HOST: fraud-detection-service
+      FRAUD_SERVICE_GRPC_PORT: 9001
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: transaction-service
+    depends_on:
+      transaction-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      fraud-detection-service:
+        condition: service_started
+    networks:
+      - finflow-network
+
+  payment-service:
+    build:
+      context: ../..
+      dockerfile: payment-service/Dockerfile
+    container_name: finflow-payment-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PAYMENT_DB_URL: jdbc:postgresql://payment-db:5432/payment_db
+      PAYMENT_DB_USERNAME: finflow
+      PAYMENT_DB_PASSWORD: finflow
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: finflow
+      RABBITMQ_PASSWORD: finflow
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: payment-service
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  saga-orchestrator-service:
+    build:
+      context: ../..
+      dockerfile: saga-orchestrator-service/Dockerfile
+    container_name: finflow-saga-orchestrator
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SAGA_DB_URL: jdbc:postgresql://saga-db:5432/saga_db
+      SAGA_DB_USERNAME: finflow
+      SAGA_DB_PASSWORD: finflow
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: finflow
+      RABBITMQ_PASSWORD: finflow
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: saga-orchestrator-service
+    depends_on:
+      saga-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  fraud-detection-service:
+    build:
+      context: ../..
+      dockerfile: fraud-detection-service/Dockerfile
+    container_name: finflow-fraud-detection
+    ports:
+      - "8086:8086"
+      - "9001:9001"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      FRAUD_DB_URL: jdbc:postgresql://fraud-db:5432/fraud_db
+      FRAUD_DB_USERNAME: finflow
+      FRAUD_DB_PASSWORD: finflow
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: fraud-detection-service
+    depends_on:
+      fraud-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: notification-service/Dockerfile
+    container_name: finflow-notification-service
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      NOTIFICATION_DB_URL: jdbc:postgresql://notification-db:5432/notification_db
+      NOTIFICATION_DB_USERNAME: finflow
+      NOTIFICATION_DB_PASSWORD: finflow
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: finflow
+      RABBITMQ_PASSWORD: finflow
+      EMAIL_ENABLED: "false"
+      SMS_ENABLED: "false"
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: notification-service
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  analytics-service:
+    build:
+      context: ../..
+      dockerfile: analytics-service/Dockerfile
+    container_name: finflow-analytics-service
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      ANALYTICS_DB_URL: jdbc:postgresql://analytics-db:5432/analytics_db
+      ANALYTICS_DB_USERNAME: finflow
+      ANALYTICS_DB_PASSWORD: finflow
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: analytics-service
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  graphql-gateway:
+    build:
+      context: ../..
+      dockerfile: graphql-gateway/Dockerfile
+    container_name: finflow-graphql-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      ANALYTICS_SERVICE_URL: http://analytics-service:8088
+      REPORT_SERVICE_URL: http://report-service:8089
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: graphql-gateway
+    depends_on:
+      analytics-service:
+        condition: service_started
+      report-service:
+        condition: service_started
+      account-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  report-service:
+    build:
+      context: ../..
+      dockerfile: report-service/Dockerfile
+    container_name: finflow-report-service
+    ports:
+      - "8089:8089"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      REPORT_DB_URL: jdbc:postgresql://report-db:5432/report_db
+      REPORT_DB_USERNAME: finflow
+      REPORT_DB_PASSWORD: finflow
+      AWS_REGION: us-east-1
+      AWS_S3_BUCKET_NAME: finflow-reports
+      AWS_S3_ENDPOINT_OVERRIDE: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/finflow
+      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/finflow/protocol/openid-connect/certs
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: report-service
+    depends_on:
+      report-db:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - finflow-network
+
+  # ── LocalStack (S3 mock for local dev) ───────────────────────────────────
+  localstack:
+    image: localstack/localstack:3.4
+    container_name: finflow-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      LOCALSTACK_AUTH_TOKEN: ""
+    volumes:
+      - localstack-data:/var/lib/localstack
+    networks:
+      - finflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  finflow-network:
+    driver: bridge
+    name: finflow-network
 
 volumes:
   keycloak-db-data:
   kafka-data:
   rabbitmq-data:
   redis-data:
+  account-db-data:
+  transaction-db-data:
+  payment-db-data:
+  saga-db-data:
+  fraud-db-data:
+  notification-db-data:
+  analytics-db-data:
+  report-db-data:
+  localstack-data:
