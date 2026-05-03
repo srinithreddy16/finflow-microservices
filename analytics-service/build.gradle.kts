@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.bundles.persistence)
     implementation(libs.spring.boot.kafka)
     implementation(libs.spring.boot.redis)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.mapstruct)
     implementation(libs.springdoc.openapi)
     implementation(project(":common"))

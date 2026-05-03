@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.bundles.service.common)
     implementation(libs.bundles.persistence)
     implementation(libs.spring.boot.amqp)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.springdoc.openapi)
     implementation(project(":common"))
 

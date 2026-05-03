@@ -24,6 +24,7 @@ dependencies {
     implementation(libs.pdfbox)
     implementation(libs.opencsv)
     implementation(libs.aws.s3)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.mapstruct)
     implementation(libs.springdoc.openapi)
     implementation(project(":common"))

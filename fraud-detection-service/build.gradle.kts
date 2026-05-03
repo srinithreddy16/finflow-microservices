@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.grpc.stub)
     implementation(libs.grpc.netty)
     implementation(libs.protobuf.java)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.resilience4j.spring.boot3)
     implementation(libs.springdoc.openapi)
     implementation(project(":common"))

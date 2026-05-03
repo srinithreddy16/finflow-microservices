@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.spring.boot.redis)
     implementation(libs.micrometer.tracing.otel)
     implementation(libs.micrometer.registry.prometheus)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.springdoc.openapi)
     implementation(libs.lombok)
     implementation(project(":common"))

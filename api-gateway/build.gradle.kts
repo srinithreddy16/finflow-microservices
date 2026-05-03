@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.spring.oauth2.resource.server)
     implementation(libs.micrometer.tracing.otel)
     implementation(libs.micrometer.registry.prometheus)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.resilience4j.reactor)
     implementation(project(":common"))
 

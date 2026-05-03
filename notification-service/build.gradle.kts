@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.spring.boot.amqp)
     implementation(libs.aws.ses)
     implementation(libs.aws.sns)
+    implementation(libs.opentelemetry.otlp)
     implementation(libs.springdoc.openapi)
     implementation(project(":common"))
 
