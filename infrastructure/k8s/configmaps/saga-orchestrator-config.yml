@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: saga-orchestrator-config
+  namespace: finflow
+  labels:
+    app: saga-orchestrator-service
+    app.kubernetes.io/part-of: finflow-platform
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  SERVER_PORT: "8085"
+  SAGA_DB_URL: "jdbc:postgresql://saga-db-service:5432/saga_db"
+  SAGA_DB_USERNAME: "finflow"
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USERNAME: "finflow"
+  KEYCLOAK_ISSUER_URI: "http://keycloak:9090/realms/finflow"
+  KEYCLOAK_JWKS_URI: "http://keycloak:9090/realms/finflow/protocol/openid-connect/certs"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4318/v1/traces"
+  OTEL_SERVICE_NAME: "saga-orchestrator-service"

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: finflow
+  labels:
+    app: api-gateway
+    app.kubernetes.io/part-of: finflow-platform
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  SERVER_PORT: "8080"
+  KEYCLOAK_ISSUER_URI: "http://keycloak:9090/realms/finflow"
+  KEYCLOAK_JWKS_URI: "http://keycloak:9090/realms/finflow/protocol/openid-connect/certs"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  ACCOUNT_SERVICE_URL: "http://account-service:8082"
+  TRANSACTION_SERVICE_URL: "http://transaction-service:8083"
+  PAYMENT_SERVICE_URL: "http://payment-service:8084"
+  ANALYTICS_SERVICE_URL: "http://analytics-service:8088"
+  REPORT_SERVICE_URL: "http://report-service:8089"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger-collector:4318/v1/traces"
+  OTEL_SERVICE_NAME: "api-gateway"
