@@ -22,6 +22,9 @@ Thumbs.db
 # Environment (never commit secrets)
 .env
 
+# Kubernetes secrets (local/dev placeholders — use AWS Secrets Manager or ESO in production)
+infrastructure/k8s/secrets/
+
 # Docker (local overrides)
 docker-compose.override.yml
 
