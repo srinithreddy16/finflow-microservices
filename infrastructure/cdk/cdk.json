@@ -1,0 +1,25 @@
+{
+  "app": "java -jar target/cdk-1.0.0.jar",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      ".git/",
+      "target/"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": true,
+    "@aws-cdk/aws-cloudwatch-actions:changeLambdaVersionIdInCustomResourceRoleArn": true,
+    "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
+    "finflow:account": "123456789012",
+    "finflow:region": "us-east-1"
+  }
+}

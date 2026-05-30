@@ -1,41 +1,45 @@
-# Gradle
+# ── Secrets — NEVER commit ────────────────────────────────────────────────
+infrastructure/k8s/secrets/
+.env
+*.env.local
+
+# ── CDK output ────────────────────────────────────────────────────────────
+infrastructure/cdk/cdk.out/
+infrastructure/cdk/.cdk.staging/
+
+# ── Docker ────────────────────────────────────────────────────────────────
+infrastructure/docker/docker-compose.override.yml
+docker-compose.override.yml
+
+# ── AWS ───────────────────────────────────────────────────────────────────
+.aws/
+
+# ── Gradle ────────────────────────────────────────────────────────────────
 .gradle/
 build/
+**/build/
 out/
 
-# IntelliJ IDEA
+# ── IDE ───────────────────────────────────────────────────────────────────
 .idea/
 *.iml
 *.ipr
 *.iws
-
-# VS Code
 .vscode/
-
-# Cursor
 .cursor/
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Environment (never commit secrets)
-.env
+# ── Generated Protobuf ────────────────────────────────────────────────────
+**/build/generated/source/proto/
 
-# Kubernetes secrets (local/dev placeholders — use AWS Secrets Manager or ESO in production)
-infrastructure/k8s/secrets/
-
-# Docker (local overrides)
-docker-compose.override.yml
-
-# Generated protobuf
-*/build/generated/source/proto/
-
-# Logs
+# ── Logs ──────────────────────────────────────────────────────────────────
 *.log
 logs/
 
-# Java
+# ── Java ──────────────────────────────────────────────────────────────────
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
