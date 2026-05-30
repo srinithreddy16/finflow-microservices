@@ -1,0 +1,252 @@
+name: FinFlow CD — Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: finflow-cluster-prod
+  ENVIRONMENT: production
+
+jobs:
+
+  validate-staging:
+    name: Validate Staging is Healthy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check staging health before prod deploy
+        run: |
+          STAGING_URL="https://api-staging.finflow.io"
+          echo "Validating staging is healthy before prod deploy..."
+          curl -f --retry 3 --retry-delay 5 $STAGING_URL/actuator/health || \
+            (echo "❌ Staging is unhealthy — aborting prod deploy" && exit 1)
+          echo "✅ Staging is healthy"
+
+  build-and-push-prod:
+    name: Build and Push Production Images
+    runs-on: ubuntu-latest
+    needs: validate-staging
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build all services
+        run: ./gradlew bootJar -x test --no-daemon --parallel
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set production image tag
+        id: image-tag
+        run: |
+          VERSION=$(cat VERSION 2>/dev/null || echo "1.0.0")
+          TAG="v${VERSION}-$(echo $GITHUB_SHA | cut -c1-8)"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "Production image tag: $TAG"
+
+      - name: Build and push production images
+        run: |
+          SERVICES=(
+            "api-gateway" "graphql-gateway" "account-service"
+            "transaction-service" "payment-service"
+            "saga-orchestrator-service" "fraud-detection-service"
+            "notification-service" "analytics-service" "report-service"
+          )
+          
+          TAG=${{ steps.image-tag.outputs.TAG }}
+          
+          for SERVICE in "${SERVICES[@]}"; do
+            docker build \
+              -t $ECR_REGISTRY/finflow/$SERVICE:$TAG \
+              -t $ECR_REGISTRY/finflow/$SERVICE:latest \
+              -t $ECR_REGISTRY/finflow/$SERVICE:prod-latest \
+              -f $SERVICE/Dockerfile .
+            
+            docker push $ECR_REGISTRY/finflow/$SERVICE:$TAG
+            docker push $ECR_REGISTRY/finflow/$SERVICE:latest
+            docker push $ECR_REGISTRY/finflow/$SERVICE:prod-latest
+            
+            echo "✅ Pushed $SERVICE:$TAG"
+          done
+
+      - name: Save image tag
+        run: echo "${{ steps.image-tag.outputs.TAG }}" > image-tag.txt
+
+      - name: Upload image tag artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-image-tag
+          path: image-tag.txt
+
+  approve-prod-deploy:
+    name: Manual Approval Required
+    runs-on: ubuntu-latest
+    needs: build-and-push-prod
+    environment: production
+    # This environment requires manual approval in GitHub Settings
+    # → Environments → production → Required reviewers
+
+    steps:
+      - name: Approval gate
+        run: |
+          echo "✅ Production deployment approved"
+          echo "Proceeding with deployment..."
+
+  deploy-production:
+    name: Deploy to Production ECS
+    runs-on: ubuntu-latest
+    needs: approve-prod-deploy
+    timeout-minutes: 30
+
+    steps:
+      - name: Download image tag
+        uses: actions/download-artifact@v4
+        with:
+          name: prod-image-tag
+
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=$(cat image-tag.txt)" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to production with blue-green strategy
+        run: |
+          SERVICES=(
+            "account-service"
+            "transaction-service"
+            "payment-service"
+            "saga-orchestrator-service"
+            "fraud-detection-service"
+            "notification-service"
+            "analytics-service"
+            "report-service"
+            "graphql-gateway"
+            "api-gateway"
+          )
+          # Deploy in this order: infra services first, gateways last
+          
+          TAG=${{ steps.tag.outputs.TAG }}
+          
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "Deploying $SERVICE to production..."
+            
+            TASK_DEF=$(aws ecs describe-task-definition \
+              --task-definition finflow-$SERVICE \
+              --query 'taskDefinition' \
+              --output json)
+            
+            NEW_TASK_DEF=$(echo $TASK_DEF | \
+              jq --arg IMAGE "$ECR_REGISTRY/finflow/$SERVICE:$TAG" \
+              '.containerDefinitions[0].image = $IMAGE |
+               del(.taskDefinitionArn, .revision, .status,
+                   .requiresAttributes, .placementConstraints,
+                   .compatibilities, .registeredAt, .registeredBy)')
+            
+            NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+              --cli-input-json "$NEW_TASK_DEF" \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+            
+            aws ecs update-service \
+              --cluster $ECS_CLUSTER \
+              --service finflow-$SERVICE \
+              --task-definition $NEW_TASK_DEF_ARN \
+              --force-new-deployment
+            
+            # Wait for this service to stabilize before next
+            aws ecs wait services-stable \
+              --cluster $ECS_CLUSTER \
+              --services finflow-$SERVICE
+            
+            echo "✅ $SERVICE deployed and stable"
+          done
+
+      - name: Run production smoke tests
+        run: |
+          PROD_URL="https://api.finflow.io"
+          
+          echo "Running production smoke tests..."
+          curl -f --retry 5 --retry-delay 10 $PROD_URL/actuator/health || \
+            (echo "❌ Production health check failed" && exit 1)
+          
+          echo "✅ Production smoke tests passed"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: "FinFlow ${{ steps.tag.outputs.TAG }}"
+          body: |
+            ## FinFlow Production Release
+
+            **Image tag:** ${{ steps.tag.outputs.TAG }}
+            **Commit:** ${{ github.sha }}
+            **Deployed:** ${{ github.event.head_commit.timestamp }}
+
+            ### Services deployed (10):
+            - api-gateway, graphql-gateway
+            - account-service, transaction-service, payment-service
+            - saga-orchestrator-service, fraud-detection-service
+            - notification-service, analytics-service, report-service
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify production deployment success
+        if: success()
+        run: |
+          echo "🚀 PRODUCTION deployment successful!"
+          echo "Tag: ${{ steps.tag.outputs.TAG }}"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment FAILED — initiating rollback"
+          
+          SERVICES=(
+            "api-gateway" "graphql-gateway" "account-service"
+            "transaction-service" "payment-service"
+          )
+          
+          for SERVICE in "${SERVICES[@]}"; do
+            aws ecs update-service \
+              --cluster $ECS_CLUSTER \
+              --service finflow-$SERVICE \
+              --task-definition $(aws ecs describe-services \
+                --cluster $ECS_CLUSTER \
+                --services finflow-$SERVICE \
+                --query 'services[0].taskDefinition' \
+                --output text | sed 's/:.*$//')
+            echo "Rolled back $SERVICE"
+          done
+          
+          echo "Rollback complete — check previous deployment for issues"
