@@ -10,28 +10,43 @@
 [![Build](https://img.shields.io/badge/Build-Passing-success)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+### Project at a glance
+
+| Metric | Count |
+|--------|------:|
+| Java source files (main) | **254** |
+| YAML configs (excl. GitHub Actions) | **69** |
+| Gradle modules | **14** (10 microservices + `common` + `proto` + `integration-tests` + CDK) |
+| Spring Boot microservices | **10** |
+| Dockerfiles | **10** |
+| AWS CDK stacks (Java) | **8** |
+| Kubernetes manifests | **38** (namespace, SA, 10 ConfigMaps, 10 Deployments, 10 Services, 2 HPA, 1 Ingress) |
+| GitHub Actions workflows | **3** (`ci`, `cd-staging`, `cd-prod`) |
+| Production release version | **`1.0.0`** (`VERSION` at repo root) |
+
 ---
 
 ## Table of Contents
 
 1. [Project header](#finflow--cloud-native-financial-operations-platform)
-2. [What is FinFlow](#section-3--what-is-finflow)
-3. [Architecture overview](#section-4--architecture-overview)
-4. [Tech stack](#section-5--tech-stack)
-5. [Services and ports](#section-6--services-and-ports)
-6. [Key design patterns](#section-7--key-design-patterns)
-7. [Core domain flows](#section-8--core-domain-flows)
-8. [Project structure](#section-9--project-structure)
-9. [Prerequisites](#section-10--prerequisites)
-10. [Quick start (local development)](#section-11--quick-start-local-development)
-11. [Running tests](#section-12--running-tests)
-12. [Observability URLs](#section-13--observability-urls)
-13. [Kafka topic reference](#section-14--kafka-topic-reference)
-14. [RabbitMQ exchange reference](#section-15--rabbitmq-exchange-reference)
-15. [Deployment](#section-16--deployment)
-16. [Environment variables](#section-17--environment-variables)
-17. [Contributing](#section-18--contributing)
-18. [License](#section-19--license)
+2. [Project at a glance](#project-at-a-glance)
+3. [What is FinFlow](#section-3--what-is-finflow)
+4. [Architecture overview](#section-4--architecture-overview)
+5. [Tech stack](#section-5--tech-stack)
+6. [Services and ports](#section-6--services-and-ports)
+7. [Key design patterns](#section-7--key-design-patterns)
+8. [Core domain flows](#section-8--core-domain-flows)
+9. [Project structure](#section-9--project-structure)
+10. [Prerequisites](#section-10--prerequisites)
+11. [Quick start (local development)](#section-11--quick-start-local-development)
+12. [Running tests](#section-12--running-tests)
+13. [Observability URLs](#section-13--observability-urls)
+14. [Kafka topic reference](#section-14--kafka-topic-reference)
+15. [RabbitMQ exchange reference](#section-15--rabbitmq-exchange-reference)
+16. [Deployment](#section-16--deployment)
+17. [Environment variables](#section-17--environment-variables)
+18. [Contributing](#section-18--contributing)
+19. [License](#section-19--license)
 
 ---
 
@@ -203,6 +218,7 @@ Internet → ALB → [API Gateway :8080]     → downstream REST services
 
 ```text
 finflow/
+├── VERSION                    ← production release tag (read by cd-prod.yml)
 ├── common/                    ← shared Java types (no Spring)
 ├── proto/                     ← gRPC + Protobuf definitions
 ├── api-gateway/               ← Spring Cloud Gateway :8080
@@ -218,14 +234,26 @@ finflow/
 ├── integration-tests/         ← Testcontainers end-to-end tests
 ├── infrastructure/
 │   ├── docker/                ← docker-compose.yml + observability
-│   ├── k8s/                   ← Kubernetes manifests
-│   └── cdk/                   ← AWS CDK stacks (Java)
+│   ├── k8s/
+│   │   ├── namespace.yml
+│   │   ├── serviceaccount.yml
+│   │   ├── configmaps/        ← 10 service ConfigMaps
+│   │   ├── secrets/           ← 5 secret templates (gitignored — never commit)
+│   │   ├── deployments/       ← 10 service Deployments
+│   │   ├── services/          ← 10 ClusterIP Services
+│   │   ├── hpa/               ← transaction + payment HPA
+│   │   └── ingress/           ← finflow-ingress.yml
+│   ├── keycloak/              ← realm export
+│   └── cdk/                   ← AWS CDK stacks (Java) + cdk.json
 ├── observability/
 │   ├── prometheus/
 │   ├── grafana/               ← dashboards
 │   ├── jaeger/
 │   └── elk/
-└── .github/workflows/         ← CI + CD staging + CD prod
+└── .github/workflows/
+    ├── ci.yml                 ← build + test on every push/PR
+    ├── cd-staging.yml         ← auto-deploy to staging on develop
+    └── cd-prod.yml            ← prod deploy on main (manual approval)
 ```
 
 ---
@@ -235,8 +263,9 @@ finflow/
 - **Java 21** (Eclipse Temurin recommended)  
 - **Docker Desktop** (for Docker Compose and Testcontainers)  
 - **Gradle 8.7** (or use `./gradlew` — wrapper is the source of truth)  
-- **AWS CLI v2** (only if you deploy with CDK or AWS tooling)  
-- **Node.js 18+** (only if you use the CDK CLI globally; Java CDK projects may still use `npx`)  
+- **AWS CLI v2** (deploy with CDK or AWS tooling)  
+- **AWS CDK CLI** (`npm install -g aws-cdk`) — required for `cdk deploy` / `cdk synth` against the Java app  
+- **Node.js 18+** (CDK CLI dependency)  
 - **RAM:** at least **16 GB** recommended if you run the full local stack (all databases, Kafka, Redis, Keycloak, and services)
 
 ---
@@ -278,6 +307,19 @@ docker compose -f infrastructure/docker/docker-compose.yml ps
 Wait until health checks show **healthy** (or equivalent) for dependencies your services need.
 
 **Step 5 — Build all modules**
+
+```bash
+./gradlew :common:build :proto:build \
+  :api-gateway:build :graphql-gateway:build \
+  :account-service:build :transaction-service:build \
+  :payment-service:build :saga-orchestrator-service:build \
+  :fraud-detection-service:build :notification-service:build \
+  :analytics-service:build :report-service:build \
+  :infrastructure:cdk:build \
+  --no-daemon
+```
+
+Or build everything in one command:
 
 ```bash
 ./gradlew build -x test --parallel
@@ -325,6 +367,11 @@ Use `docker compose` (v2) or `docker-compose` (v1) depending on your installatio
 # Run a specific test class
 ./gradlew :transaction-service:test \
   --tests "com.finflow.transaction.TransactionAggregateTest"
+```
+
+```bash
+# Run integration tests (Testcontainers — requires Docker)
+./gradlew :integration-tests:test
 ```
 
 **Testcontainers:** Integration tests spin up **real** PostgreSQL, Kafka, RabbitMQ (and peers as configured) via Testcontainers. **Docker Desktop must be running** or those tests will fail to start containers.
@@ -387,33 +434,75 @@ Add the observability file (see Section 11) when you need metrics, traces, and l
 
 ### B) Kubernetes (local with kind or minikube)
 
+Apply manifests in dependency order:
+
 ```bash
 kubectl apply -f infrastructure/k8s/namespace.yml
+kubectl apply -f infrastructure/k8s/serviceaccount.yml
 kubectl apply -f infrastructure/k8s/configmaps/
+# Secrets are gitignored — create locally from templates, then apply:
+# kubectl apply -f infrastructure/k8s/secrets/
 kubectl apply -f infrastructure/k8s/deployments/
 kubectl apply -f infrastructure/k8s/services/
+kubectl apply -f infrastructure/k8s/hpa/
 kubectl apply -f infrastructure/k8s/ingress/
 ```
 
-Adjust paths if your repo’s `infrastructure/k8s` layout differs.
+> **Security:** `infrastructure/k8s/secrets/` is listed in `.gitignore`. Even placeholder credentials must **never** be committed. Use AWS Secrets Manager, External Secrets Operator, or sealed secrets in production.
+
+**Manifest inventory**
+
+| Path | Count | Purpose |
+|------|------:|---------|
+| `configmaps/` | 10 | Per-service Spring / env configuration |
+| `secrets/` | 5 | DB, Kafka, RabbitMQ, Keycloak, AWS credentials |
+| `deployments/` | 10 | One Deployment per microservice |
+| `services/` | 10 | ClusterIP Services |
+| `hpa/` | 2 | Auto-scaling for transaction + payment |
+| `ingress/` | 1 | `finflow-ingress.yml` — external routing |
 
 ### C) AWS CDK (production)
 
+The CDK app is **Java** (not TypeScript). It is a Gradle module at `:infrastructure:cdk` and defines **8 stacks** deployed in dependency order:
+
+| Stack | Provisions |
+|-------|------------|
+| `NetworkStack` | VPC, public/private/isolated subnets, security groups |
+| `DatabaseStack` | 9× PostgreSQL 16 RDS instances (database-per-service + Keycloak) |
+| `MessagingStack` | MSK Kafka + Amazon MQ RabbitMQ |
+| `CacheStack` | ElastiCache Redis |
+| `StorageStack` | S3 reports bucket |
+| `KeycloakStack` | Keycloak on ECS Fargate |
+| `EcsClusterStack` | ECS cluster + all 10 microservice Fargate services |
+| `ObservabilityStack` | Jaeger, Prometheus, Grafana on ECS |
+
+`EcsClusterStack` receives `NetworkStack`, `DatabaseStack`, `MessagingStack`, and `CacheStack` in its constructor so CDK resolves cross-stack dependencies at synth time — parameter order matters even when a stack does not reference every dependency in its body.
+
+**Build and synth**
+
 ```bash
+./gradlew :infrastructure:cdk:build --no-daemon
 cd infrastructure/cdk
-npm install -g aws-cdk
 cdk bootstrap aws://ACCOUNT_ID/us-east-1
-cdk deploy --all
+cdk deploy --all --app "java -jar build/libs/cdk-1.0.0.jar"
 ```
 
-Replace `ACCOUNT_ID` and region with your AWS account details.
+Replace `ACCOUNT_ID` and region with your AWS account details. Context defaults live in `infrastructure/cdk/cdk.json` (`finflow:account`, `finflow:region`).
 
 ### D) GitHub Actions CI/CD
 
-- **CI** runs on every push and pull request (build and test).  
-- **CD to staging:** merge to the `develop` branch (if configured).  
-- **CD to production:** merge to `main`, often with a **manual approval** gate.  
-- Configure required reviewers under **GitHub → Settings → Environments → `production` → Required reviewers**.
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `.github/workflows/ci.yml` | Push to any branch; PRs to `main` / `develop` | Build all modules, run tests, publish JUnit reports, Trivy scan (PR), dependency check (PR) |
+| `.github/workflows/cd-staging.yml` | Push to `develop` | Build Docker images → ECR → deploy ECS staging → smoke test `https://api-staging.finflow.io` |
+| `.github/workflows/cd-prod.yml` | Push to `main` | Validate staging health → build prod images → **manual approval** → rolling ECS deploy → smoke test `https://api.finflow.io` → GitHub Release |
+
+**Required GitHub configuration**
+
+- Repository secrets: `AWS_ACCOUNT_ID`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- Environment **`staging`** — used by the staging deploy job
+- Environment **`production`** — enable **Required reviewers** under **GitHub → Settings → Environments → production** before `approve-prod-deploy` will pause for approval
+- Bump **`VERSION`** at the repo root before major releases; `cd-prod.yml` tags images as `v<VERSION>-<sha>`
 
 ---
 
