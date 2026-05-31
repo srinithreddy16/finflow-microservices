@@ -27,5 +27,8 @@ include(
     "notification-service",
     "analytics-service",
     "report-service",
-    "integration-tests"
+    "integration-tests",
+    "infrastructure:cdk"
 )
+
+project(":infrastructure:cdk").projectDir = file("infrastructure/cdk")

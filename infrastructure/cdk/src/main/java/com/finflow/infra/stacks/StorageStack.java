@@ -19,7 +19,7 @@ public class StorageStack extends FinFlowStack {
                 Stack.of(this).getAccount())
             .encryption(BucketEncryption.S3_MANAGED)
             .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
-            .enforceSSL(true)
+            .enforceSsl(true)
             .versioned(false)
             .removalPolicy(RemovalPolicy.RETAIN)
             .lifecycleRules(List.of(

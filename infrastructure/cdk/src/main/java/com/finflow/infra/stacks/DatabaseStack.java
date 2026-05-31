@@ -33,7 +33,7 @@ public class DatabaseStack extends FinFlowStack {
                     PostgresInstanceEngineProps.builder()
                         .version(PostgresEngineVersion.VER_16_3)
                         .build()))
-                .instanceType(InstanceType.of(
+                .instanceType(software.amazon.awscdk.services.ec2.InstanceType.of(
                     InstanceClass.BURSTABLE3, InstanceSize.SMALL))
                 .vpc(networkStack.getVpc())
                 .vpcSubnets(SubnetSelection.builder()

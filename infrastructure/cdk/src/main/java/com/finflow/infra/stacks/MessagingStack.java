@@ -71,9 +71,9 @@ public class MessagingStack extends FinFlowStack {
                         .build()))
                 .build();
 
-        CfnOutput.Builder.create(this, "KafkaBootstrapServers")
-            .value(kafkaCluster.getAttrBootstrapBrokers())
-            .exportName("FinFlowKafkaBootstrapServers")
+        CfnOutput.Builder.create(this, "KafkaClusterArn")
+            .value(kafkaCluster.getAttrArn())
+            .exportName("FinFlowKafkaClusterArn")
             .build();
     }
 

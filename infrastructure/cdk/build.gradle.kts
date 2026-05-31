@@ -13,8 +13,9 @@ application {
     mainClass = "com.finflow.infra.FinFlowApp"
 }
 
-repositories {
-    mavenCentral()
+tasks.jar {
+    archiveBaseName.set("cdk")
+    archiveVersion.set("1.0.0")
 }
 
 dependencies {
