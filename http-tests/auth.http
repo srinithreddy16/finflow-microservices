@@ -1,0 +1,86 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Authentication
+### Run these FIRST before any other requests
+### ──────────────────────────────────────────────────────────────
+
+### [1] Get Admin Access Token
+# Run this first — it sets {{token}} used by all other requests
+POST {{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id={{clientId}}&client_secret={{clientSecret}}&username={{adminUsername}}&password={{adminPassword}}
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Access token present", function() {
+    client.assert(response.body.access_token !== undefined,
+      "Expected access_token in response");
+  });
+  client.global.set("token", response.body.access_token);
+  client.log("✅ Token obtained and saved to {{token}}");
+%}
+
+###
+
+### [2] Get Customer Access Token
+POST {{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&client_id={{clientId}}&client_secret={{clientSecret}}&username={{customerUsername}}&password={{customerPassword}}
+
+> {%
+  client.test("Status is 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.global.set("customerToken", response.body.access_token);
+  client.log("✅ Customer token obtained");
+%}
+
+###
+
+### [3] Refresh Token
+# Use when your access token expires (default 1 hour)
+POST {{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=refresh_token&client_id={{clientId}}&client_secret={{clientSecret}}&refresh_token={{refreshToken}}
+
+> {%
+  client.global.set("token", response.body.access_token);
+  client.global.set("refreshToken", response.body.refresh_token);
+%}
+
+###
+
+### [4] Introspect Token (verify token is valid)
+POST {{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token/introspect
+Content-Type: application/x-www-form-urlencoded
+
+token={{token}}&client_id={{clientId}}&client_secret={{clientSecret}}
+
+###
+
+### [5] Test — No Token (should return 401)
+GET {{apiGatewayUrl}}/api/accounts/test-id
+
+> {%
+  client.test("Returns 401 without token", function() {
+    client.assert(response.status === 401,
+      "Expected 401 Unauthorized without token");
+  });
+%}
+
+###
+
+### [6] Test — Invalid Token (should return 401)
+GET {{apiGatewayUrl}}/api/accounts/test-id
+Authorization: Bearer invalid-token-here
+
+> {%
+  client.test("Returns 401 with invalid token", function() {
+    client.assert(response.status === 401,
+      "Expected 401 Unauthorized with invalid token");
+  });
+%}
