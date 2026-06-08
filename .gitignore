@@ -2,6 +2,7 @@
 infrastructure/k8s/secrets/
 .env
 *.env.local
+http-tests/http-client.private.env.json
 
 # ── CDK output ────────────────────────────────────────────────────────────
 infrastructure/cdk/cdk.out/
