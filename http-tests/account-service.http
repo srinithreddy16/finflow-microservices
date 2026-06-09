@@ -1,0 +1,272 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Account Service
+### Base URL: http://localhost:8082
+### Prerequisites: Run auth.http [1] first to get {{token}}
+### ──────────────────────────────────────────────────────────────
+
+### ── TENANT ENDPOINTS ──────────────────────────────────────────
+
+### [1] Create Tenant
+POST {{accountServiceUrl}}/api/tenants
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Correlation-Id: corr-tenant-001
+
+{
+  "name": "Acme Corporation",
+  "slug": "acme-corp",
+  "ownerEmail": "owner@acme.com"
+}
+
+> {%
+  client.test("Tenant created — 201", function() {
+    client.assert(response.status === 201,
+      "Expected 201 Created, got " + response.status);
+  });
+  client.test("Tenant has id", function() {
+    client.assert(response.body.id !== undefined,
+      "Expected id in response");
+  });
+  client.global.set("tenantId", response.body.id);
+  client.log("✅ Tenant created: " + response.body.id);
+%}
+
+###
+
+### [2] Get Tenant By ID
+GET {{accountServiceUrl}}/api/tenants/{{tenantId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Tenant found — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Tenant name is correct", function() {
+    client.assert(response.body.name === "Acme Corporation",
+      "Expected name Acme Corporation");
+  });
+%}
+
+###
+
+### [3] Get Tenant By Slug
+GET {{accountServiceUrl}}/api/tenants/slug/acme-corp
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Tenant found by slug — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+    client.assert(response.body.slug === "acme-corp",
+      "Expected slug acme-corp");
+  });
+%}
+
+###
+
+### [4] Get All Tenants
+GET {{accountServiceUrl}}/api/tenants
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Tenants list returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [5] Create Tenant — Duplicate Slug (should fail 409)
+POST {{accountServiceUrl}}/api/tenants
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Different Corp",
+  "slug": "acme-corp",
+  "ownerEmail": "other@other.com"
+}
+
+> {%
+  client.test("Duplicate slug returns 400 or 409", function() {
+    client.assert(response.status === 400 || response.status === 409,
+      "Expected 400 or 409 for duplicate slug");
+  });
+%}
+
+###
+
+### ── ACCOUNT ENDPOINTS ─────────────────────────────────────────
+
+### [6] Create Account
+POST {{accountServiceUrl}}/api/accounts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Correlation-Id: corr-account-001
+
+{
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+1234567890",
+  "tenantId": "{{tenantId}}"
+}
+
+> {%
+  client.test("Account created — 201", function() {
+    client.assert(response.status === 201,
+      "Expected 201 Created, got " + response.status);
+  });
+  client.test("Account has id", function() {
+    client.assert(response.body.id !== undefined,
+      "Expected id in response");
+  });
+  client.global.set("accountId", response.body.id);
+  client.log("✅ Account created: " + response.body.id);
+%}
+
+###
+
+### [7] Create Account — Missing Email (should fail 400)
+POST {{accountServiceUrl}}/api/accounts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+1234567890"
+}
+
+> {%
+  client.test("Missing email returns 400", function() {
+    client.assert(response.status === 400,
+      "Expected 400 Bad Request");
+  });
+  client.test("Error has errorCode VALIDATION_FAILED", function() {
+    client.assert(response.body.errorCode === "VALIDATION_FAILED",
+      "Expected VALIDATION_FAILED errorCode");
+  });
+%}
+
+###
+
+### [8] Create Account — Duplicate Email (should fail 409)
+POST {{accountServiceUrl}}/api/accounts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+1234567890"
+}
+
+> {%
+  client.test("Duplicate email returns 409", function() {
+    client.assert(response.status === 409,
+      "Expected 409 Conflict for duplicate email");
+  });
+%}
+
+###
+
+### [9] Get Account By ID
+GET {{accountServiceUrl}}/api/accounts/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Account found — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Account email is correct", function() {
+    client.assert(response.body.email === "john.doe@example.com",
+      "Expected correct email");
+  });
+%}
+
+###
+
+### [10] Get Account By Email
+GET {{accountServiceUrl}}/api/accounts/email/john.doe@example.com
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Account found by email — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [11] Get Accounts By Tenant
+GET {{accountServiceUrl}}/api/accounts/tenant/{{tenantId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Accounts by tenant — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [12] Get Non-existent Account (should fail 404)
+GET {{accountServiceUrl}}/api/accounts/non-existent-id-00000
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Non-existent account returns 404", function() {
+    client.assert(response.status === 404,
+      "Expected 404 Not Found");
+  });
+  client.test("Error has errorCode ACCOUNT_NOT_FOUND", function() {
+    client.assert(response.body.errorCode === "ACCOUNT_NOT_FOUND",
+      "Expected ACCOUNT_NOT_FOUND errorCode");
+  });
+%}
+
+###
+
+### [13] Suspend Account
+PATCH {{accountServiceUrl}}/api/accounts/{{accountId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Correlation-Id: corr-suspend-001
+
+{
+  "status": "SUSPENDED",
+  "reason": "Policy violation during testing"
+}
+
+> {%
+  client.test("Account suspended — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Status is SUSPENDED", function() {
+    client.assert(response.body.status === "SUSPENDED",
+      "Expected SUSPENDED status");
+  });
+%}
+
+###
+
+### [14] Reactivate Account
+PATCH {{accountServiceUrl}}/api/accounts/{{accountId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "ACTIVE",
+  "reason": "Resolved — reactivating for testing"
+}
+
+> {%
+  client.test("Account reactivated — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Status is ACTIVE", function() {
+    client.assert(response.body.status === "ACTIVE",
+      "Expected ACTIVE status");
+  });
+%}
