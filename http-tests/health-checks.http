@@ -1,0 +1,131 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Health Checks
+### No authentication required for these endpoints
+### Run these to confirm all services are UP before testing
+### ──────────────────────────────────────────────────────────────
+
+### [1] API Gateway Health
+GET {{apiGatewayUrl}}/actuator/health
+
+> {%
+  client.test("API Gateway is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+    client.assert(response.body.status === "UP",
+      "Expected status UP");
+  });
+%}
+
+###
+
+### [2] GraphQL Gateway Health
+GET {{graphqlGatewayUrl}}/actuator/health
+
+> {%
+  client.test("GraphQL Gateway is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+    client.assert(response.body.status === "UP", "Expected UP");
+  });
+%}
+
+###
+
+### [3] Account Service Health
+GET {{accountServiceUrl}}/actuator/health
+
+> {%
+  client.test("Account Service is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [4] Transaction Service Health
+GET {{transactionServiceUrl}}/actuator/health
+
+> {%
+  client.test("Transaction Service is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [5] Payment Service Health
+GET {{paymentServiceUrl}}/actuator/health
+
+> {%
+  client.test("Payment Service is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [6] Saga Orchestrator Health
+GET {{sagaOrchestratorUrl}}/actuator/health
+
+> {%
+  client.test("Saga Orchestrator is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [7] Fraud Detection Health
+GET {{fraudServiceUrl}}/actuator/health
+
+> {%
+  client.test("Fraud Detection is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [8] Notification Service Health
+GET {{notificationServiceUrl}}/actuator/health
+
+> {%
+  client.test("Notification Service is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [9] Analytics Service Health
+GET {{analyticsServiceUrl}}/actuator/health
+
+> {%
+  client.test("Analytics Service is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [10] Report Service Health
+GET {{reportServiceUrl}}/actuator/health
+
+> {%
+  client.test("Report Service is UP", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [11] All Actuator Metrics Endpoints
+GET {{transactionServiceUrl}}/actuator/metrics
+
+###
+
+### [12] Prometheus Metrics (transaction-service)
+GET {{transactionServiceUrl}}/actuator/prometheus
+
+###
+
+### [13] Circuit Breaker Status (transaction-service)
+GET {{transactionServiceUrl}}/actuator/circuitbreakers
