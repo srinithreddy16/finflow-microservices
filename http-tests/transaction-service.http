@@ -1,0 +1,271 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Transaction Service
+### Base URL: http://localhost:8083
+### Prerequisites:
+###   - Run auth.http [1] to get {{token}}
+###   - Run account-service.http [6] to get {{accountId}}
+### ──────────────────────────────────────────────────────────────
+
+### [1] Create Transaction — Normal Amount (fraud check should PASS)
+POST {{transactionServiceUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-User-Id: user-admin-001
+X-Correlation-Id: corr-tx-normal-001
+
+{
+  "accountId": "{{accountId}}",
+  "amount": 500.00,
+  "currency": "USD",
+  "description": "Normal payment — should pass fraud check"
+}
+
+> {%
+  client.test("Transaction created — 201", function() {
+    client.assert(response.status === 201,
+      "Expected 201 Created, got " + response.status);
+  });
+  client.test("Transaction has id", function() {
+    client.assert(response.body.id !== undefined,
+      "Expected id in response");
+  });
+  client.test("Status is PENDING", function() {
+    client.assert(response.body.status === "PENDING",
+      "Expected PENDING status");
+  });
+  client.global.set("transactionId", response.body.id);
+  client.log("✅ Transaction created: " + response.body.id);
+%}
+
+###
+
+### [2] Create Transaction — High Amount (fraud check should FLAG)
+POST {{transactionServiceUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-User-Id: user-admin-001
+X-Correlation-Id: corr-tx-high-001
+
+{
+  "accountId": "{{accountId}}",
+  "amount": 15000.00,
+  "currency": "USD",
+  "description": "High value payment — expect fraud flag"
+}
+
+> {%
+  client.test("High amount returns 400 (fraud flagged)", function() {
+    client.assert(response.status === 400,
+      "Expected 400 — transaction flagged by fraud detection");
+  });
+  client.test("Error code is TRANSACTION_FLAGGED_AS_FRAUD", function() {
+    client.assert(
+      response.body.errorCode === "TRANSACTION_FLAGGED_AS_FRAUD",
+      "Expected TRANSACTION_FLAGGED_AS_FRAUD errorCode");
+  });
+  client.log("✅ Fraud detection working — high amount was flagged");
+%}
+
+###
+
+### [3] Create Transaction — Very High Amount (even higher flag)
+POST {{transactionServiceUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-User-Id: user-admin-001
+
+{
+  "accountId": "{{accountId}}",
+  "amount": 55000.00,
+  "currency": "USD",
+  "description": "Very high value — expect score 80+"
+}
+
+> {%
+  client.test("Very high amount flagged as fraud", function() {
+    client.assert(response.status === 400,
+      "Expected 400 fraud rejection");
+  });
+%}
+
+###
+
+### [4] Create Transaction — Missing Amount (should fail 400)
+POST {{transactionServiceUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "accountId": "{{accountId}}",
+  "currency": "USD"
+}
+
+> {%
+  client.test("Missing amount returns 400", function() {
+    client.assert(response.status === 400,
+      "Expected 400 Bad Request");
+  });
+  client.test("Validation error", function() {
+    client.assert(response.body.errorCode === "VALIDATION_FAILED",
+      "Expected VALIDATION_FAILED");
+  });
+%}
+
+###
+
+### [5] Create Transaction — Negative Amount (should fail 400)
+POST {{transactionServiceUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "accountId": "{{accountId}}",
+  "amount": -100.00,
+  "currency": "USD"
+}
+
+> {%
+  client.test("Negative amount returns 400", function() {
+    client.assert(response.status === 400,
+      "Expected 400 Bad Request");
+  });
+%}
+
+###
+
+### [6] Create Transaction — Invalid Currency (should fail 400)
+POST {{transactionServiceUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "accountId": "{{accountId}}",
+  "amount": 100.00,
+  "currency": "INVALID"
+}
+
+> {%
+  client.test("Invalid currency returns 400", function() {
+    client.assert(response.status === 400,
+      "Expected 400 Bad Request");
+  });
+%}
+
+###
+
+### [7] Get Transaction By ID
+GET {{transactionServiceUrl}}/api/transactions/{{transactionId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Transaction found — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Transaction id matches", function() {
+    client.assert(response.body.id === client.global.get("transactionId"),
+      "Transaction id mismatch");
+  });
+  client.log("Transaction status: " + response.body.status);
+%}
+
+###
+
+### [8] Get Non-existent Transaction (should fail 404)
+GET {{transactionServiceUrl}}/api/transactions/non-existent-tx-id
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Non-existent transaction returns 404", function() {
+    client.assert(response.status === 404,
+      "Expected 404 Not Found");
+  });
+  client.test("Error code TRANSACTION_NOT_FOUND", function() {
+    client.assert(response.body.errorCode === "TRANSACTION_NOT_FOUND",
+      "Expected TRANSACTION_NOT_FOUND");
+  });
+%}
+
+###
+
+### [9] Get Transactions By Account
+GET {{transactionServiceUrl}}/api/transactions/account/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Transactions list returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Response has content array", function() {
+    client.assert(response.body.content !== undefined,
+      "Expected content array");
+  });
+  client.test("Has pagination fields", function() {
+    client.assert(response.body.totalElements !== undefined,
+      "Expected totalElements");
+  });
+%}
+
+###
+
+### [10] Get Transactions With Pagination
+GET {{transactionServiceUrl}}/api/transactions/account/{{accountId}}?page=0&size=5
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Paginated transactions — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Page size is 5", function() {
+    client.assert(response.body.size === 5,
+      "Expected size 5");
+  });
+%}
+
+###
+
+### [11] Get Transactions With Status Filter
+GET {{transactionServiceUrl}}/api/transactions/account/{{accountId}}?status=PENDING
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Filtered transactions — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [12] Get Transaction Summary
+GET {{transactionServiceUrl}}/api/transactions/account/{{accountId}}/summary
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Transaction summary — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Summary has totalTransactions", function() {
+    client.assert(response.body.totalTransactions !== undefined,
+      "Expected totalTransactions in summary");
+  });
+  client.log("Total transactions: " + response.body.totalTransactions);
+%}
+
+###
+
+### [13] Reverse Transaction
+PATCH {{transactionServiceUrl}}/api/transactions/{{transactionId}}/reverse
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-User-Id: user-admin-001
+
+{
+  "reversalReason": "Customer requested refund during testing",
+  "correlationId": "corr-reversal-001"
+}
+
+> {%
+  client.test("Transaction reversed — 200", function() {
+    client.assert(response.status === 200,
+      "Expected 200 OK or may fail if not COMPLETED yet");
+  });
+%}
