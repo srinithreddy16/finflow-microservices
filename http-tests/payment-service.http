@@ -1,0 +1,128 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Payment Service
+### Base URL: http://localhost:8084
+### Prerequisites:
+###   - Run auth.http [1] to get {{token}}
+###   - Run transaction-service.http [1] to trigger payment creation
+###   - Payment is created automatically via RabbitMQ choreography saga
+### ──────────────────────────────────────────────────────────────
+
+### [1] Get Payment By Transaction ID
+# Payment is created automatically when a transaction is created.
+# Wait ~2 seconds after creating a transaction before running this.
+GET {{paymentServiceUrl}}/api/payments/transaction/{{transactionId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Payment found — 200", function() {
+    client.assert(response.status === 200,
+      "Expected 200 OK — payment may not be created yet, wait 2s");
+  });
+  client.test("Payment has id", function() {
+    client.assert(response.body.id !== undefined,
+      "Expected payment id");
+  });
+  client.test("Payment transactionId matches", function() {
+    client.assert(
+      response.body.transactionId === client.global.get("transactionId"),
+      "TransactionId mismatch");
+  });
+  client.global.set("paymentId", response.body.id);
+  client.log("✅ Payment found: " + response.body.id +
+             " status: " + response.body.status);
+%}
+
+###
+
+### [2] Get Payment By ID
+GET {{paymentServiceUrl}}/api/payments/{{paymentId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Payment by id — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.log("Payment status: " + response.body.status);
+%}
+
+###
+
+### [3] Get Payments By Account
+GET {{paymentServiceUrl}}/api/payments/account/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Payments by account — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Returns array", function() {
+    client.assert(Array.isArray(response.body),
+      "Expected array of payments");
+  });
+  client.log("Payments count: " + response.body.length);
+%}
+
+###
+
+### [4] Get Account Balance
+GET {{paymentServiceUrl}}/api/payments/account/{{accountId}}/balance
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Balance returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Balance has accountId", function() {
+    client.assert(response.body.accountId !== undefined,
+      "Expected accountId in balance response");
+  });
+  client.test("Balance has numeric value", function() {
+    client.assert(response.body.balance !== undefined,
+      "Expected balance value");
+  });
+  client.log("Account balance: " + response.body.balance +
+             " " + response.body.currency);
+%}
+
+###
+
+### [5] Get Ledger Entries For Payment
+GET {{paymentServiceUrl}}/api/payments/{{paymentId}}/ledger
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Ledger entries returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Should have exactly 2 entries (DEBIT + CREDIT)", function() {
+    client.assert(response.body.length === 2,
+      "Expected 2 ledger entries (double-entry bookkeeping), " +
+      "got " + response.body.length);
+  });
+  client.test("One DEBIT entry exists", function() {
+    const debit = response.body.find(e => e.entryType === "DEBIT");
+    client.assert(debit !== undefined, "Expected DEBIT entry");
+  });
+  client.test("One CREDIT entry exists", function() {
+    const credit = response.body.find(e => e.entryType === "CREDIT");
+    client.assert(credit !== undefined, "Expected CREDIT entry");
+  });
+  client.log("✅ Double-entry bookkeeping verified");
+%}
+
+###
+
+### [6] Get Non-existent Payment (should fail 404)
+GET {{paymentServiceUrl}}/api/payments/non-existent-payment-id
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Non-existent payment returns 404", function() {
+    client.assert(response.status === 404,
+      "Expected 404 Not Found");
+  });
+  client.test("Error code PAYMENT_NOT_FOUND", function() {
+    client.assert(response.body.errorCode === "PAYMENT_NOT_FOUND",
+      "Expected PAYMENT_NOT_FOUND");
+  });
+%}
