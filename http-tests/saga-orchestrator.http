@@ -1,0 +1,154 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Saga Orchestrator Service
+### Base URL: http://localhost:8085
+### Tests the Orchestration Saga for account onboarding
+### Prerequisites: Run auth.http [1] and account-service.http [1]
+### ──────────────────────────────────────────────────────────────
+
+### [1] Start Account Onboarding Saga — Happy Path
+POST {{sagaOrchestratorUrl}}/api/saga/onboarding
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Correlation-Id: saga-corr-001
+
+{
+  "email": "newuser.saga@example.com",
+  "firstName": "Alice",
+  "lastName": "Johnson",
+  "phoneNumber": "+1122334455",
+  "tenantId": "{{tenantId}}"
+}
+
+> {%
+  client.test("Saga started — 202 Accepted", function() {
+    client.assert(response.status === 202,
+      "Expected 202 Accepted (async operation), got " + response.status);
+  });
+  client.test("Saga has id", function() {
+    client.assert(response.body.sagaId !== undefined,
+      "Expected sagaId in response");
+  });
+  client.test("Saga type is ACCOUNT_ONBOARDING", function() {
+    client.assert(response.body.sagaType === "ACCOUNT_ONBOARDING",
+      "Expected ACCOUNT_ONBOARDING saga type");
+  });
+  client.global.set("sagaId", response.body.sagaId);
+  client.log("✅ Saga started: " + response.body.sagaId);
+  client.log("Initial state: " + response.body.state);
+%}
+
+###
+
+### [2] Check Saga Status (poll after 1-2 seconds)
+# Run this multiple times to watch state transitions:
+# STARTED → STEP_1_PENDING → STEP_1_COMPLETED →
+# STEP_2_PENDING → STEP_2_COMPLETED →
+# STEP_3_PENDING → STEP_3_COMPLETED →
+# STEP_4_PENDING → COMPLETED
+GET {{sagaOrchestratorUrl}}/api/saga/{{sagaId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Saga status returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.log("Saga state: " + response.body.state);
+  client.log("Current step: " + response.body.currentStep);
+  if (response.body.state === "COMPLETED") {
+    client.log("✅ Saga COMPLETED successfully!");
+    client.log("Account ID: " + response.body.accountId);
+  } else if (response.body.state === "FAILED") {
+    client.log("❌ Saga FAILED: " + response.body.failureReason);
+  } else if (response.body.state === "COMPENSATION_FAILED") {
+    client.log("❌ Saga COMPENSATION_FAILED — manual intervention needed");
+  }
+%}
+
+###
+
+### [3] Get Sagas By Email
+GET {{sagaOrchestratorUrl}}/api/saga/email/newuser.saga@example.com
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Sagas by email — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Returns array", function() {
+    client.assert(Array.isArray(response.body),
+      "Expected array of sagas");
+  });
+%}
+
+###
+
+### [4] Get All Active Sagas
+GET {{sagaOrchestratorUrl}}/api/saga/active
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Active sagas returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.log("Active sagas count: " + response.body.length);
+%}
+
+###
+
+### [5] Saga Health Check
+GET {{sagaOrchestratorUrl}}/api/saga/health
+
+> {%
+  client.test("Saga health — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Status is UP", function() {
+    client.assert(response.body.status === "UP",
+      "Expected status UP");
+  });
+  client.log("Active sagas: " + response.body.activeSagas);
+%}
+
+###
+
+### [6] Start Saga — Duplicate Email (should fail)
+POST {{sagaOrchestratorUrl}}/api/saga/onboarding
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "newuser.saga@example.com",
+  "firstName": "Alice",
+  "lastName": "Johnson",
+  "phoneNumber": "+1122334455",
+  "tenantId": "{{tenantId}}"
+}
+
+> {%
+  client.test("Duplicate saga returns 400", function() {
+    client.assert(response.status === 400,
+      "Expected 400 — active saga already exists for this email");
+  });
+  client.log("Duplicate saga prevention working");
+%}
+
+###
+
+### [7] Start Saga — Missing Required Fields (should fail 400)
+POST {{sagaOrchestratorUrl}}/api/saga/onboarding
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Bob"
+}
+
+> {%
+  client.test("Missing fields returns 400", function() {
+    client.assert(response.status === 400, "Expected 400 Bad Request");
+  });
+  client.test("Validation error", function() {
+    client.assert(response.body.errorCode === "VALIDATION_FAILED",
+      "Expected VALIDATION_FAILED");
+  });
+%}
