@@ -1,0 +1,111 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Analytics Service
+### Base URL: http://localhost:8088
+### Note: Analytics data is populated by Kafka consumers.
+### Wait 10-15 seconds after creating transactions before
+### querying analytics to allow Kafka processing to complete.
+### ──────────────────────────────────────────────────────────────
+
+### [1] Get Analytics Summary — Default (last 30 days)
+GET {{analyticsServiceUrl}}/api/analytics/summary/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Analytics summary — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Has totalTransactions", function() {
+    client.assert(response.body.totalTransactions !== undefined,
+      "Expected totalTransactions field");
+  });
+  client.test("Has totalVolume", function() {
+    client.assert(response.body.totalVolume !== undefined,
+      "Expected totalVolume field");
+  });
+  client.log("Total transactions: " + response.body.totalTransactions);
+  client.log("Total volume: " + response.body.totalVolume);
+  client.log("Fraud rate: " + response.body.fraudRate + "%");
+%}
+
+###
+
+### [2] Get Analytics Summary — Custom Date Range
+GET {{analyticsServiceUrl}}/api/analytics/summary/{{accountId}}?fromDate=2026-01-01&toDate=2026-12-31
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Analytics summary with dates — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("fromDate matches", function() {
+    client.assert(response.body.fromDate === "2026-01-01",
+      "Expected fromDate 2026-01-01");
+  });
+%}
+
+###
+
+### [3] Get Daily Metrics — Today
+GET {{analyticsServiceUrl}}/api/analytics/daily/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Daily metrics — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Has date field", function() {
+    client.assert(response.body.date !== undefined,
+      "Expected date field");
+  });
+  client.log("Today's transactions: " + response.body.totalTransactions);
+  client.log("Today's volume: " + response.body.totalVolume);
+%}
+
+###
+
+### [4] Get Account History — Last 7 Days
+GET {{analyticsServiceUrl}}/api/analytics/history/{{accountId}}?days=7
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Account history — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Returns array", function() {
+    client.assert(Array.isArray(response.body),
+      "Expected array of daily metrics");
+  });
+  client.log("History entries: " + response.body.length);
+%}
+
+###
+
+### [5] Get Account History — Last 30 Days
+GET {{analyticsServiceUrl}}/api/analytics/history/{{accountId}}?days=30
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("30 day history — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [6] Get Platform Summary (admin only)
+GET {{analyticsServiceUrl}}/api/analytics/platform
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Platform summary — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Has totalTransactionsToday", function() {
+    client.assert(response.body.totalTransactionsToday !== undefined,
+      "Expected totalTransactionsToday");
+  });
+  client.log("Platform transactions today: " +
+             response.body.totalTransactionsToday);
+  client.log("Platform fraud flags today: " +
+             response.body.fraudFlagsToday);
+%}
