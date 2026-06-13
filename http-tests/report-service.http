@@ -1,0 +1,202 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — Report Service
+### Base URL: http://localhost:8089
+### Reports are generated synchronously — response returns
+### only after PDF/CSV is generated and uploaded to S3/LocalStack
+### ──────────────────────────────────────────────────────────────
+
+### [1] Generate PDF — Transaction History Report
+POST {{reportServiceUrl}}/api/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Correlation-Id: report-corr-001
+X-User-Id: user-admin-001
+
+{
+  "accountId": "{{accountId}}",
+  "reportType": "TRANSACTION_HISTORY",
+  "format": "PDF",
+  "fromDate": "2026-01-01",
+  "toDate": "2026-12-31"
+}
+
+> {%
+  client.test("Report accepted — 202", function() {
+    client.assert(response.status === 202,
+      "Expected 202 Accepted, got " + response.status);
+  });
+  client.test("Report has id", function() {
+    client.assert(response.body.id !== undefined,
+      "Expected report id");
+  });
+  client.test("Status is READY (synchronous generation)", function() {
+    client.assert(response.body.status === "READY",
+      "Expected READY status after synchronous generation, got: " +
+      response.body.status);
+  });
+  client.test("Download URL is present", function() {
+    client.assert(response.body.downloadUrl !== undefined,
+      "Expected downloadUrl in response");
+  });
+  client.global.set("reportId", response.body.id);
+  client.log("✅ Report generated: " + response.body.id);
+  client.log("Download URL: " + response.body.downloadUrl);
+%}
+
+###
+
+### [2] Generate CSV — Analytics Summary Report
+POST {{reportServiceUrl}}/api/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-User-Id: user-admin-001
+
+{
+  "accountId": "{{accountId}}",
+  "reportType": "ANALYTICS_SUMMARY",
+  "format": "CSV"
+}
+
+> {%
+  client.test("CSV report generated — 202", function() {
+    client.assert(response.status === 202, "Expected 202");
+  });
+  client.test("Format is CSV", function() {
+    client.assert(response.body.reportFormat === "CSV",
+      "Expected CSV format");
+  });
+  client.log("CSV report id: " + response.body.id);
+%}
+
+###
+
+### [3] Generate PDF — Fraud Report
+POST {{reportServiceUrl}}/api/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "accountId": "{{accountId}}",
+  "reportType": "FRAUD_REPORT",
+  "format": "PDF"
+}
+
+> {%
+  client.test("Fraud report generated — 202", function() {
+    client.assert(response.status === 202, "Expected 202");
+  });
+  client.test("Report type is FRAUD_REPORT", function() {
+    client.assert(response.body.reportType === "FRAUD_REPORT",
+      "Expected FRAUD_REPORT");
+  });
+%}
+
+###
+
+### [4] Generate Report — Missing Account ID (should fail 400)
+POST {{reportServiceUrl}}/api/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "reportType": "TRANSACTION_HISTORY",
+  "format": "PDF"
+}
+
+> {%
+  client.test("Missing accountId returns 400", function() {
+    client.assert(response.status === 400,
+      "Expected 400 Bad Request");
+  });
+  client.test("Validation error", function() {
+    client.assert(response.body.errorCode === "VALIDATION_FAILED",
+      "Expected VALIDATION_FAILED");
+  });
+%}
+
+###
+
+### [5] Get Report By ID (includes fresh presigned URL)
+GET {{reportServiceUrl}}/api/reports/{{reportId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Report found — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Status is READY", function() {
+    client.assert(response.body.status === "READY",
+      "Expected READY status");
+  });
+  client.test("Fresh download URL present", function() {
+    client.assert(response.body.downloadUrl !== undefined,
+      "Expected fresh downloadUrl");
+  });
+  client.test("Expires at is set", function() {
+    client.assert(response.body.expiresAt !== undefined,
+      "Expected expiresAt (1 hour from now)");
+  });
+  client.log("Download URL (1hr expiry): " + response.body.downloadUrl);
+%}
+
+###
+
+### [6] Get Reports By Account
+GET {{reportServiceUrl}}/api/reports/account/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Reports by account — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Has content array", function() {
+    client.assert(response.body.content !== undefined,
+      "Expected content array");
+  });
+  client.log("Total reports: " + response.body.totalElements);
+%}
+
+###
+
+### [7] Get Reports — Filter By READY Status
+GET {{reportServiceUrl}}/api/reports/account/{{accountId}}?status=READY
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("READY reports returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [8] Get Download URL Only
+GET {{reportServiceUrl}}/api/reports/{{reportId}}/download-url
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Download URL returned — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Has downloadUrl", function() {
+    client.assert(response.body.downloadUrl !== undefined,
+      "Expected downloadUrl");
+  });
+  client.log("Fresh URL: " + response.body.downloadUrl);
+%}
+
+###
+
+### [9] Get Non-existent Report (should fail 404)
+GET {{reportServiceUrl}}/api/reports/non-existent-report-id
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Non-existent report returns 404", function() {
+    client.assert(response.status === 404, "Expected 404 Not Found");
+  });
+  client.test("Error code REPORT_NOT_FOUND", function() {
+    client.assert(response.body.errorCode === "REPORT_NOT_FOUND",
+      "Expected REPORT_NOT_FOUND");
+  });
+%}
