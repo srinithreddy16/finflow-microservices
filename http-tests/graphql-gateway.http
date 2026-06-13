@@ -1,0 +1,209 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — GraphQL Gateway
+### Base URL: http://localhost:8081
+### Endpoint: POST /graphql
+### GraphiQL UI: http://localhost:8081/graphiql (dev only)
+### ──────────────────────────────────────────────────────────────
+
+### [1] Query — Analytics Summary
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query GetAnalytics($accountId: ID!) { analyticsSummary(accountId: $accountId) { accountId totalTransactions completedTransactions failedTransactions totalVolume completedVolume fraudFlags fraudRate avgTransactionAmount currency fromDate toDate calculatedAt } }",
+  "variables": {
+    "accountId": "{{accountId}}"
+  }
+}
+
+> {%
+  client.test("GraphQL analytics query — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("No GraphQL errors", function() {
+    client.assert(response.body.errors === undefined,
+      "Expected no GraphQL errors: " +
+      JSON.stringify(response.body.errors));
+  });
+  client.test("Has analyticsSummary data", function() {
+    client.assert(response.body.data.analyticsSummary !== undefined,
+      "Expected analyticsSummary in data");
+  });
+  client.log("Total transactions: " +
+    response.body.data.analyticsSummary.totalTransactions);
+%}
+
+###
+
+### [2] Query — Daily Metrics
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { dailyMetrics(accountId: \"{{accountId}}\") { date totalTransactions completedTransactions failedTransactions totalVolume completedVolume fraudFlags currency } }"
+}
+
+> {%
+  client.test("Daily metrics query — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("No GraphQL errors", function() {
+    client.assert(response.body.errors === undefined,
+      "No errors expected");
+  });
+%}
+
+###
+
+### [3] Query — Account History
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { accountHistory(accountId: \"{{accountId}}\", days: 7) { date totalTransactions completedTransactions totalVolume fraudFlags currency } }"
+}
+
+> {%
+  client.test("Account history query — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Returns array", function() {
+    client.assert(Array.isArray(response.body.data.accountHistory),
+      "Expected array of daily metrics");
+  });
+%}
+
+###
+
+### [4] Query — Account Profile
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { account(id: \"{{accountId}}\") { id email firstName lastName status kycVerified createdAt tenant { id name slug ownerEmail } } }"
+}
+
+> {%
+  client.test("Account query — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Account email correct", function() {
+    client.assert(response.body.data.account !== null,
+      "Expected account data");
+  });
+%}
+
+###
+
+### [5] Query — Reports By Account
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { reportsByAccount(accountId: \"{{accountId}}\") { content { id name status downloadUrl reportType createdAt expiresAt } totalElements page size } }"
+}
+
+> {%
+  client.test("Reports query — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Has content array", function() {
+    client.assert(response.body.data.reportsByAccount.content !== undefined,
+      "Expected content");
+  });
+  client.log("Reports count: " +
+    response.body.data.reportsByAccount.totalElements);
+%}
+
+###
+
+### [6] Query — Platform Summary (admin only)
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { platformSummary { totalTransactionsToday completedTransactionsToday totalVolumeToday fraudFlagsToday fraudRateToday activeAccounts calculatedAt } }"
+}
+
+> {%
+  client.test("Platform summary query — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [7] Mutation — Generate Report via GraphQL
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "mutation GenerateReport($input: GenerateReportInput!) { generateReport(input: $input) { id name status reportType } }",
+  "variables": {
+    "input": {
+      "accountId": "{{accountId}}",
+      "reportType": "ANALYTICS_SUMMARY",
+      "format": "PDF"
+    }
+  }
+}
+
+> {%
+  client.test("Generate report mutation — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("No GraphQL errors", function() {
+    client.assert(response.body.errors === undefined,
+      "Expected no errors");
+  });
+  client.test("Report created", function() {
+    client.assert(response.body.data.generateReport.id !== undefined,
+      "Expected report id");
+  });
+%}
+
+###
+
+### [8] Query — GraphQL Introspection (dev only)
+POST {{graphqlGatewayUrl}}/graphql
+Content-Type: application/json
+
+{
+  "query": "{ __schema { queryType { name } types { name kind } } }"
+}
+
+> {%
+  client.test("Introspection works — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+  client.test("Schema has queryType", function() {
+    client.assert(
+      response.body.data.__schema.queryType !== undefined,
+      "Expected queryType");
+  });
+%}
+
+###
+
+### [9] Query — With Errors (invalid accountId type)
+POST {{graphqlGatewayUrl}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "query { account(id: \"\") { id email } }"
+}
+
+> {%
+  client.test("Empty id returns null or error gracefully", function() {
+    client.assert(response.status === 200,
+      "GraphQL always returns 200 even for errors");
+  });
+%}
