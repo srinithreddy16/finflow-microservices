@@ -1,0 +1,135 @@
+### ──────────────────────────────────────────────────────────────
+### FinFlow — API Gateway
+### Base URL: http://localhost:8080
+### Tests routing, JWT validation, and rate limiting
+### All requests go through the gateway and are routed downstream
+### ──────────────────────────────────────────────────────────────
+
+### [1] Create Transaction Via Gateway
+POST {{apiGatewayUrl}}/api/transactions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-User-Id: user-admin-001
+X-Correlation-Id: gateway-tx-001
+
+{
+  "accountId": "{{accountId}}",
+  "amount": 250.00,
+  "currency": "USD",
+  "description": "Test via API Gateway routing"
+}
+
+> {%
+  client.test("Transaction via gateway — 201", function() {
+    client.assert(response.status === 201,
+      "Expected 201 Created through gateway");
+  });
+  client.test("Response has X-Correlation-Id header", function() {
+    client.assert(response.headers["x-correlation-id"] !== undefined,
+      "Expected X-Correlation-Id header from TracingFilter");
+  });
+  client.test("Response has X-Trace-Id header", function() {
+    client.assert(response.headers["x-trace-id"] !== undefined,
+      "Expected X-Trace-Id header from TracingFilter");
+  });
+  client.log("✅ Gateway routing + tracing headers verified");
+%}
+
+###
+
+### [2] Get Account Via Gateway
+GET {{apiGatewayUrl}}/api/accounts/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Account via gateway — 200", function() {
+    client.assert(response.status === 200,
+      "Expected 200 OK through gateway");
+  });
+%}
+
+###
+
+### [3] Gateway — No Token (should return 401)
+GET {{apiGatewayUrl}}/api/accounts/{{accountId}}
+
+> {%
+  client.test("No token returns 401", function() {
+    client.assert(response.status === 401,
+      "Expected 401 Unauthorized");
+  });
+  client.test("Error has errorCode", function() {
+    client.assert(response.body.errorCode !== undefined,
+      "Expected errorCode in error response");
+  });
+%}
+
+###
+
+### [4] Gateway — Invalid Token (should return 401)
+GET {{apiGatewayUrl}}/api/accounts/{{accountId}}
+Authorization: Bearer this-is-not-a-valid-jwt-token
+
+> {%
+  client.test("Invalid token returns 401", function() {
+    client.assert(response.status === 401,
+      "Expected 401 with invalid token");
+  });
+%}
+
+###
+
+### [5] Gateway — Actuator Health (no auth needed)
+GET {{apiGatewayUrl}}/actuator/health
+
+> {%
+  client.test("Gateway health — 200 no auth", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [6] Gateway — Rate Limiter Test
+# Run this request quickly 15+ times to trigger 429
+GET {{apiGatewayUrl}}/api/accounts/{{accountId}}
+Authorization: Bearer {{token}}
+
+###
+
+### [7] Gateway — Fallback Test
+# This tests the circuit breaker fallback
+# Only triggered when a downstream service is down
+GET {{apiGatewayUrl}}/fallback
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Fallback returns 503", function() {
+    client.assert(response.status === 503,
+      "Expected 503 from fallback handler");
+  });
+%}
+
+###
+
+### [8] Gateway — Route to Analytics
+GET {{apiGatewayUrl}}/api/analytics/summary/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Analytics via gateway — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
+
+###
+
+### [9] Gateway — Route to Reports
+GET {{apiGatewayUrl}}/api/reports/account/{{accountId}}
+Authorization: Bearer {{token}}
+
+> {%
+  client.test("Reports via gateway — 200", function() {
+    client.assert(response.status === 200, "Expected 200 OK");
+  });
+%}
