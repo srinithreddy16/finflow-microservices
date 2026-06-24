@@ -1,0 +1,61 @@
+# EditorConfig — https://editorconfig.org
+# Top-level config — applies to entire FinFlow monorepo
+
+root = true
+
+# Default for all files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Java source files
+[*.java]
+indent_size = 4
+max_line_length = 120
+
+# Gradle Kotlin DSL
+[*.kts]
+indent_size = 4
+
+# YAML — application.yml, docker-compose, k8s manifests
+[*.{yml,yaml}]
+indent_size = 2
+
+# JSON — Grafana dashboards, package files
+[*.json]
+indent_size = 2
+
+# SQL — Flyway migrations
+[*.sql]
+indent_size = 4
+trim_trailing_whitespace = true
+
+# Proto files
+[*.proto]
+indent_size = 2
+
+# Markdown — preserve trailing spaces (used for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+# Properties files
+[*.properties]
+indent_size = 2
+
+# Shell scripts
+[*.sh]
+indent_size = 2
+end_of_line = lf
+
+# Dockerfile
+[Dockerfile*]
+indent_size = 4
+
+# Makefile requires tabs
+[Makefile]
+indent_style = tab
